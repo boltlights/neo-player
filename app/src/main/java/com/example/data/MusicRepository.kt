@@ -49,6 +49,12 @@ class MusicRepository(private val musicDao: MusicDao) {
         return ids.chunked(MAX_SQL_VARIABLES).flatMap { musicDao.getTracksByIds(it) }
     }
 
+    /** Chunked for the same 999-variable limit as [getTracksByIds]. */
+    suspend fun getTracksByUids(uids: List<String>): List<TrackEntity> {
+        if (uids.isEmpty()) return emptyList()
+        return uids.distinct().chunked(MAX_SQL_VARIABLES).flatMap { musicDao.getTracksByUids(it) }
+    }
+
     private companion object {
         const val MAX_SQL_VARIABLES = 900
     }
@@ -143,12 +149,16 @@ class MusicRepository(private val musicDao: MusicDao) {
         musicDao.deletePlaylist(playlistId)
     }
 
+    /** Appends the track (by its stable UID) to the end of the playlist; no-op if already present. */
     suspend fun addTrackToPlaylist(playlistId: Int, trackId: Int) {
-        musicDao.insertPlaylistTrackCrossRef(PlaylistTrackCrossRef(playlistId, trackId))
+        val uid = musicDao.getUidForTrack(trackId)?.takeIf { it.isNotEmpty() } ?: return
+        val position = musicDao.getMaxPlaylistPosition(playlistId) + 1
+        musicDao.insertPlaylistEntry(PlaylistEntryEntity(playlistId, uid, position))
     }
 
     suspend fun removeTrackFromPlaylist(playlistId: Int, trackId: Int) {
-        musicDao.deletePlaylistTrackCrossRef(playlistId, trackId)
+        val uid = musicDao.getUidForTrack(trackId) ?: return
+        musicDao.deletePlaylistEntry(playlistId, uid)
     }
 
     suspend fun createPlaylist(name: String, songs: List<TrackEntity>) {
@@ -191,7 +201,7 @@ class MusicRepository(private val musicDao: MusicDao) {
         musicDao.savePlaybackState(state)
     }
 
-    suspend fun updatePlaybackPosition(pos: Int, trackId: Int, isShuffle: Boolean) {
-        musicDao.updatePlaybackPosition(pos, trackId, isShuffle)
+    suspend fun updatePlaybackPosition(pos: Int, trackUid: String?, isShuffle: Boolean) {
+        musicDao.updatePlaybackPosition(pos, trackUid, isShuffle)
     }
 }

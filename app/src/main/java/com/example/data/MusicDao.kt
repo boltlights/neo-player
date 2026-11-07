@@ -33,13 +33,33 @@ interface MusicDao {
     suspend fun getTrackById(id: Int): TrackEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTrack(track: TrackEntity): Long
+    suspend fun insertTrackRaw(track: TrackEntity): Long
 
     @Update
-    suspend fun updateTrack(track: TrackEntity)
+    suspend fun updateTrackRaw(track: TrackEntity)
 
     @Update
-    suspend fun updateTracks(tracks: List<TrackEntity>)
+    suspend fun updateTracksRaw(tracks: List<TrackEntity>)
+
+    /** Inserts a track with its stable [TrackEntity.uid] filled in. */
+    suspend fun insertTrack(track: TrackEntity): Long = insertTrackRaw(track.copy(uid = TrackUid.of(track)))
+
+    /**
+     * Updates a track, recomputing its UID. If re-tagging changed the UID, the song's playlist entries
+     * and play history move with it (unless an identical copy still carries the old UID).
+     */
+    @Transaction
+    suspend fun updateTrack(track: TrackEntity) {
+        val newUid = TrackUid.of(track)
+        val oldUid = track.uid.ifEmpty { getUidForTrack(track.id).orEmpty() }
+        updateTrackRaw(track.copy(uid = newUid))
+        if (oldUid.isNotEmpty() && oldUid != newUid && countTracksWithUid(oldUid) == 0) {
+            rekeyUid(oldUid, newUid)
+        }
+    }
+
+    suspend fun updateTracks(tracks: List<TrackEntity>) =
+        updateTracksRaw(tracks.map { it.copy(uid = TrackUid.of(it)) })
 
     @Query("DELETE FROM tracks WHERE id = :trackId")
     suspend fun deleteTrack(trackId: Int)
@@ -57,26 +77,64 @@ interface MusicDao {
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     suspend fun deletePlaylist(playlistId: Int)
 
-    // Many-to-Many cross reference queries
+    // Stable-identity helpers. A persisted UID resolves to the lowest row ID carrying it, so identical
+    // copies of one song (same tags) resolve deterministically to a single library row.
+    @Query("SELECT uid FROM tracks WHERE id = :trackId")
+    suspend fun getUidForTrack(trackId: Int): String?
+
+    @Query("SELECT * FROM tracks WHERE uid IN (:uids)")
+    suspend fun getTracksByUids(uids: List<String>): List<TrackEntity>
+
+    @Query("SELECT COUNT(*) FROM tracks WHERE uid = :uid")
+    suspend fun countTracksWithUid(uid: String): Int
+
+    // Playlist entries (by stable UID, ordered by position)
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertPlaylistTrackCrossRef(ref: PlaylistTrackCrossRef)
+    suspend fun insertPlaylistEntry(entry: PlaylistEntryEntity): Long
 
-    @Query("DELETE FROM playlist_track_cross_ref WHERE playlistId = :playlistId AND trackId = :trackId")
-    suspend fun deletePlaylistTrackCrossRef(playlistId: Int, trackId: Int)
+    @Query("SELECT COALESCE(MAX(position), -1) FROM playlist_entries WHERE playlistId = :playlistId")
+    suspend fun getMaxPlaylistPosition(playlistId: Int): Int
 
-    @Query("DELETE FROM playlist_track_cross_ref WHERE playlistId = :playlistId")
+    @Query("DELETE FROM playlist_entries WHERE playlistId = :playlistId AND trackUid = :trackUid")
+    suspend fun deletePlaylistEntry(playlistId: Int, trackUid: String)
+
+    @Query("DELETE FROM playlist_entries WHERE playlistId = :playlistId")
     suspend fun clearPlaylistTracks(playlistId: Int)
 
     @Query("""
-        SELECT t.* FROM tracks t 
-        INNER JOIN playlist_track_cross_ref ref ON t.id = ref.trackId 
-        WHERE ref.playlistId = :playlistId 
-        ORDER BY t.addedAt DESC
+        SELECT t.* FROM playlist_entries e
+        INNER JOIN tracks t ON t.id = (SELECT MIN(t2.id) FROM tracks t2 WHERE t2.uid = e.trackUid)
+        WHERE e.playlistId = :playlistId
+        ORDER BY e.position
     """)
     fun getTracksForPlaylist(playlistId: Int): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM playlist_track_cross_ref")
+    @Query("""
+        SELECT e.playlistId AS playlistId, t.id AS trackId FROM playlist_entries e
+        INNER JOIN tracks t ON t.id = (SELECT MIN(t2.id) FROM tracks t2 WHERE t2.uid = e.trackUid)
+        ORDER BY e.playlistId, e.position
+    """)
     fun getAllPlaylistTrackCrossRefs(): Flow<List<PlaylistTrackCrossRef>>
+
+    /**
+     * Moves playlist entries and history from [oldUid] to [newUid] (a song was re-tagged). Entries that
+     * would duplicate an existing one for [newUid] in the same playlist are dropped.
+     */
+    @Transaction
+    suspend fun rekeyUid(oldUid: String, newUid: String) {
+        rekeyPlaylistEntries(oldUid, newUid)
+        deletePlaylistEntriesForUid(oldUid)
+        rekeyHistory(oldUid, newUid)
+    }
+
+    @Query("UPDATE OR IGNORE playlist_entries SET trackUid = :newUid WHERE trackUid = :oldUid")
+    suspend fun rekeyPlaylistEntries(oldUid: String, newUid: String)
+
+    @Query("DELETE FROM playlist_entries WHERE trackUid = :uid")
+    suspend fun deletePlaylistEntriesForUid(uid: String)
+
+    @Query("UPDATE playback_history SET trackUid = :newUid WHERE trackUid = :oldUid")
+    suspend fun rekeyHistory(oldUid: String, newUid: String)
 
     @Query("SELECT * FROM playback_state WHERE id = 0")
     suspend fun getPlaybackState(): PlaybackStateEntity?
@@ -84,8 +142,8 @@ interface MusicDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun savePlaybackState(state: PlaybackStateEntity)
 
-    @Query("UPDATE playback_state SET currentPositionMs = :pos, currentTrackId = :trackId, isShuffleEnabled = :isShuffle WHERE id = 0")
-    suspend fun updatePlaybackPosition(pos: Int, trackId: Int, isShuffle: Boolean)
+    @Query("UPDATE playback_state SET currentPositionMs = :pos, currentTrackUid = :trackUid, isShuffleEnabled = :isShuffle WHERE id = 0")
+    suspend fun updatePlaybackPosition(pos: Int, trackUid: String?, isShuffle: Boolean)
 
     // Playback History & Smart Playlists
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -100,7 +158,7 @@ interface MusicDao {
         trimPlaybackHistory()
     }
     
-    @Query("SELECT COUNT(*) FROM playback_history WHERE trackId = :trackId")
+    @Query("SELECT COUNT(*) FROM playback_history WHERE trackUid = (SELECT uid FROM tracks WHERE id = :trackId)")
     suspend fun getPlayCountForTrack(trackId: Int): Int
     
     @Query("SELECT * FROM tracks WHERE id IN (:ids)")
@@ -110,24 +168,24 @@ interface MusicDao {
     fun getRecentlyAdded(): Flow<List<TrackEntity>>
 
     @Query("""
-        SELECT t.* FROM tracks t
-        INNER JOIN (
-            SELECT trackId, COUNT(*) as playCount
+        SELECT t.* FROM (
+            SELECT trackUid, COUNT(*) AS playCount
             FROM playback_history
-            GROUP BY trackId
-        ) h ON t.id = h.trackId
+            GROUP BY trackUid
+        ) h
+        INNER JOIN tracks t ON t.id = (SELECT MIN(t2.id) FROM tracks t2 WHERE t2.uid = h.trackUid)
         ORDER BY h.playCount DESC
         LIMIT 30
     """)
     fun getMostPlayed(): Flow<List<TrackEntity>>
 
     @Query("""
-        SELECT t.* FROM tracks t
-        INNER JOIN (
-            SELECT trackId, MAX(timestamp) as lastPlayed
+        SELECT t.* FROM (
+            SELECT trackUid, MAX(timestamp) AS lastPlayed
             FROM playback_history
-            GROUP BY trackId
-        ) h ON t.id = h.trackId
+            GROUP BY trackUid
+        ) h
+        INNER JOIN tracks t ON t.id = (SELECT MIN(t2.id) FROM tracks t2 WHERE t2.uid = h.trackUid)
         ORDER BY h.lastPlayed DESC
         LIMIT 30
     """)

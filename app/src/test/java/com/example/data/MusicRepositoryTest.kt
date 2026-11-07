@@ -185,13 +185,79 @@ class MusicRepositoryTest {
     @Test
     fun playbackHistory_recordsPlaysAndCountsAccurately() = runBlocking {
         val trackId = repository.insertTrack(createSampleTrack(title = "Popular Song")).toInt()
+        val uid = repository.getTrackById(trackId)!!.uid
 
         assertEquals(0, repository.getPlayCountForTrack(trackId))
 
-        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackId = trackId))
-        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackId = trackId))
-        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackId = trackId))
+        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackUid = uid))
+        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackUid = uid))
+        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackUid = uid))
 
         assertEquals(3, repository.getPlayCountForTrack(trackId))
+    }
+
+    // --- Stable UID guarantees ---
+
+    @Test
+    fun insertedTracksGetStableUid() = runBlocking {
+        val id = repository.insertTrack(createSampleTrack(title = "Uid Song")).toInt()
+        val stored = repository.getTrackById(id)!!
+        assertTrue(stored.uid.startsWith("s1:"))
+        assertEquals(TrackUid.of(stored), stored.uid)
+    }
+
+    @Test
+    fun playlistSurvivesTrackRemovedAndRescanned() = runBlocking {
+        val id = repository.insertTrack(createSampleTrack(title = "Comes Back")).toInt()
+        val playlistId = repository.insertPlaylist(PlaylistEntity(name = "Keep")).toInt()
+        repository.addTrackToPlaylist(playlistId, id)
+
+        // Scanner removes the row (file temporarily unavailable): the song is hidden, not lost.
+        repository.deleteTrack(id)
+        assertTrue(database.musicDao().getTracksForPlaylist(playlistId).first().isEmpty())
+
+        // File returns and is re-imported under a brand new row ID.
+        val newId = repository.insertTrack(createSampleTrack(title = "Comes Back")).toInt()
+        assertTrue(newId != id)
+        val back = database.musicDao().getTracksForPlaylist(playlistId).first()
+        assertEquals(listOf(newId), back.map { it.id })
+    }
+
+    @Test
+    fun playlistKeepsInsertionOrder() = runBlocking {
+        val a = repository.insertTrack(createSampleTrack(title = "A")).toInt()
+        val b = repository.insertTrack(createSampleTrack(title = "B")).toInt()
+        val c = repository.insertTrack(createSampleTrack(title = "C")).toInt()
+        val playlistId = repository.insertPlaylist(PlaylistEntity(name = "Ordered")).toInt()
+        repository.addTrackToPlaylist(playlistId, b)
+        repository.addTrackToPlaylist(playlistId, c)
+        repository.addTrackToPlaylist(playlistId, a)
+        assertEquals(listOf("B", "C", "A"), database.musicDao().getTracksForPlaylist(playlistId).first().map { it.title })
+        assertEquals(listOf(b, c, a), repository.allPlaylistTrackCrossRefs.first().map { it.trackId })
+    }
+
+    @Test
+    fun retaggedTrackKeepsPlaylistAndHistory() = runBlocking {
+        val id = repository.insertTrack(createSampleTrack(title = "Typo Titel")).toInt()
+        val playlistId = repository.insertPlaylist(PlaylistEntity(name = "Retag")).toInt()
+        repository.addTrackToPlaylist(playlistId, id)
+        repository.insertPlaybackHistory(PlaybackHistoryEntity(trackUid = repository.getTrackById(id)!!.uid))
+
+        // Scanner picks up corrected tags for the same file.
+        repository.updateTrack(repository.getTrackById(id)!!.copy(title = "Typo Title"))
+
+        val updated = repository.getTrackById(id)!!
+        assertEquals(TrackUid.of(updated), updated.uid)
+        assertEquals(listOf(id), database.musicDao().getTracksForPlaylist(playlistId).first().map { it.id })
+        assertEquals(1, repository.getPlayCountForTrack(id))
+    }
+
+    @Test
+    fun tracksByUidsChunksLargeLists() = runBlocking {
+        val uids = (1..1500).map { i ->
+            val id = repository.insertTrack(createSampleTrack(title = "Bulk $i")).toInt()
+            repository.getTrackById(id)!!.uid
+        }
+        assertEquals(1500, repository.getTracksByUids(uids).size)
     }
 }

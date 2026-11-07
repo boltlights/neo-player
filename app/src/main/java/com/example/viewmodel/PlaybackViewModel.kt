@@ -76,23 +76,24 @@ class PlaybackViewModel(
         val queue = playbackController.currentPlaybackList.value
         val baseQueue = playbackController.getBasePlaybackList()
         val track = playbackController.currentTrack.value
-        val currentTrackId = track?.id ?: -1
+        // Persist by stable UID: row IDs can change between sessions (rescans), UIDs don't.
+        val currentTrackUid = track?.uid?.takeIf { it.isNotEmpty() }
         val pos = playbackController.currentPosition.value
         val isShuffle = playbackController.isShuffle.value
         val isRepeat = playbackController.isRepeat.value
 
         val queueHash = queue.hashCode()
         if (queueHash != lastSavedQueueHash) {
-            lastSavedQueueStr = queue.joinToString(",") { it.id.toString() }
-            val baseQueueStr = baseQueue.joinToString(",") { it.id.toString() }
+            lastSavedQueueStr = queue.joinToString(",") { it.uid }
+            val baseQueueStr = baseQueue.joinToString(",") { it.uid }
             lastSavedQueueHash = queueHash
             scope.launch {
                 repository.savePlaybackState(
                     PlaybackStateEntity(
                         id = 0,
-                        baseQueueTrackIds = baseQueueStr,
-                        queueTrackIds = lastSavedQueueStr,
-                        currentTrackId = currentTrackId,
+                        baseQueueTrackUids = baseQueueStr,
+                        queueTrackUids = lastSavedQueueStr,
+                        currentTrackUid = currentTrackUid,
                         currentPositionMs = pos,
                         isShuffleEnabled = isShuffle,
                         isRepeatEnabled = isRepeat
@@ -101,7 +102,7 @@ class PlaybackViewModel(
             }
         } else {
             scope.launch {
-                repository.updatePlaybackPosition(pos, currentTrackId, isShuffle)
+                repository.updatePlaybackPosition(pos, currentTrackUid, isShuffle)
             }
         }
     }
@@ -139,34 +140,30 @@ class PlaybackViewModel(
         }
         val playbackState = repository.getPlaybackState()
         if (playbackState != null) {
-            val baseQueueIdsStr = playbackState.baseQueueTrackIds
-            val queueIdsStr = playbackState.queueTrackIds
-            val currentTrackId = playbackState.currentTrackId
             val savedPos = playbackState.currentPositionMs
             val isShuffleEnabled = playbackState.isShuffleEnabled
             val isRepeatEnabled = playbackState.isRepeatEnabled
+            val uids = playbackState.queueTrackUids.split(",").filter { it.isNotBlank() }
+            val baseUids = playbackState.baseQueueTrackUids.split(",").filter { it.isNotBlank() }
 
-            if (queueIdsStr.isNotEmpty()) {
-                val baseIds = if (baseQueueIdsStr.isNotEmpty()) baseQueueIdsStr.split(",").mapNotNull { it.toIntOrNull() } else emptyList()
-                val ids = queueIdsStr.split(",").mapNotNull { it.toIntOrNull() }
+            if (uids.isNotEmpty()) {
+                // Identical copies share a UID; resolve each to the lowest row ID, matching the DAO.
+                val trackByUid = repository.getTracksByUids(uids + baseUids)
+                    .groupBy { it.uid }
+                    .mapValues { (_, copies) -> copies.minBy { it.id } }
 
-                if (ids.isNotEmpty()) {
-                    val allIds = (ids + baseIds).distinct()
-                    val trackMap = repository.getTracksByIds(allIds).associateBy { it.id }
+                val trackList = uids.mapNotNull { trackByUid[it] }
+                val baseTrackList = if (baseUids.isNotEmpty()) baseUids.mapNotNull { trackByUid[it] } else trackList
 
-                    val trackList = ids.mapNotNull { trackMap[it] }.toList()
-                    val baseTrackList = if (baseIds.isNotEmpty()) baseIds.mapNotNull { trackMap[it] }.toList() else trackList
-
-                    if (trackList.isNotEmpty()) {
-                        playbackController.restorePlaybackListAndTrack(
-                            list = trackList,
-                            baseList = baseTrackList,
-                            activeTrack = trackList.firstOrNull { it.id == currentTrackId },
-                            positionMs = savedPos,
-                            isShuffleEnabled = isShuffleEnabled,
-                            isRepeatEnabled = isRepeatEnabled
-                        )
-                    }
+                if (trackList.isNotEmpty()) {
+                    playbackController.restorePlaybackListAndTrack(
+                        list = trackList,
+                        baseList = baseTrackList,
+                        activeTrack = trackList.firstOrNull { it.uid == playbackState.currentTrackUid },
+                        positionMs = savedPos,
+                        isShuffleEnabled = isShuffleEnabled,
+                        isRepeatEnabled = isRepeatEnabled
+                    )
                 }
             }
         }

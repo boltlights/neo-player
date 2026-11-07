@@ -965,13 +965,15 @@ class PlaybackController(private val context: Context) {
                         _currentPosition.value = pos
                         
                         val trackId = currentTrackIdForLogging
+                        // History is keyed by stable UID so play counts survive rescans.
+                        val trackUid = _currentTrack.value?.takeIf { it.id == trackId }?.uid
                         val dur = _duration.value
-                        if (trackId != null && dur > 0 && pos >= dur * 0.9 && !loggedForCurrentTrack) {
+                        if (trackId != null && !trackUid.isNullOrEmpty() && dur > 0 && pos >= dur * 0.9 && !loggedForCurrentTrack) {
                             loggedForCurrentTrack = true
                             launch(Dispatchers.IO) {
                                 try {
                                     val repo = (context.applicationContext as MusicApplication).repository
-                                    repo.insertPlaybackHistory(com.example.data.PlaybackHistoryEntity(trackId = trackId))
+                                    repo.insertPlaybackHistory(com.example.data.PlaybackHistoryEntity(trackUid = trackUid))
                                     timber.log.Timber.tag("PlaybackController").d("Successfully logged playback history for track: %s", trackId)
                                 } catch (e: Exception) {
                                     timber.log.Timber.tag("PlaybackController").e(e, "Failed to log playback history")

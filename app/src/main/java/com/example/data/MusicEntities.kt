@@ -20,7 +20,8 @@ data class TrackFtsEntity(
         Index(value = ["title"]),
         Index(value = ["artist"]),
         Index(value = ["album"]),
-        Index(value = ["genre"])
+        Index(value = ["genre"]),
+        Index(value = ["uid"])
     ]
 )
 @androidx.compose.runtime.Immutable
@@ -43,7 +44,12 @@ data class TrackEntity(
     val musicBrainzId: String? = null,
     val lyrics: String? = null,
     val year: Int? = null,
-    val customTags: String? = null
+    val customTags: String? = null,
+    /**
+     * Stable identity (see [TrackUid]). Filled in by [MusicRepository] on every insert/update, so it
+     * never needs to be set by hand. Persisted references use this instead of [id].
+     */
+    val uid: String = ""
 )
 
 @Entity(tableName = "playlists")
@@ -54,28 +60,39 @@ data class PlaylistEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+/**
+ * A song in a playlist, stored by stable [TrackEntity.uid] with an explicit [position].
+ *
+ * Deliberately *no* foreign key to `tracks`: a song whose file is temporarily missing (SD card out,
+ * permission revoked) is removed from `tracks` by the scanner, and with the old cascade that silently
+ * erased it from every playlist. Entries for absent songs simply stay hidden until the song returns.
+ */
 @Entity(
-    tableName = "playlist_track_cross_ref",
-    primaryKeys = ["playlistId", "trackId"],
+    tableName = "playlist_entries",
+    primaryKeys = ["playlistId", "trackUid"],
     foreignKeys = [
         ForeignKey(
             entity = PlaylistEntity::class,
             parentColumns = ["id"],
             childColumns = ["playlistId"],
             onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = TrackEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["trackId"],
-            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
         Index(value = ["playlistId"]),
-        Index(value = ["trackId"])
+        Index(value = ["trackUid"])
     ]
 )
+data class PlaylistEntryEntity(
+    val playlistId: Int,
+    val trackUid: String,
+    val position: Int
+)
+
+/**
+ * A playlist membership resolved to the current session's track row ID (what the UI works with).
+ * Produced by a join of [PlaylistEntryEntity] with `tracks`; only songs present in the library appear.
+ */
 data class PlaylistTrackCrossRef(
     val playlistId: Int,
     val trackId: Int
@@ -84,17 +101,21 @@ data class PlaylistTrackCrossRef(
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
     @PrimaryKey val id: Int = 0,
-    val baseQueueTrackIds: String = "",
-    val queueTrackIds: String,
-    val currentTrackId: Int,
+    /** Comma-separated [TrackEntity.uid]s. */
+    val baseQueueTrackUids: String = "",
+    val queueTrackUids: String,
+    val currentTrackUid: String?,
     val currentPositionMs: Int,
     val isShuffleEnabled: Boolean = false,
     val isRepeatEnabled: Boolean = false
 )
 
-@Entity(tableName = "playback_history")
+@Entity(
+    tableName = "playback_history",
+    indices = [Index(value = ["trackUid"])]
+)
 data class PlaybackHistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val trackId: Int,
+    val trackUid: String,
     val timestamp: Long = System.currentTimeMillis()
 )

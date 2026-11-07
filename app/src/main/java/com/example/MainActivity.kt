@@ -189,6 +189,12 @@ fun MainScreenLayout(
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
     val importProgress by viewModel.importProgress.collectAsStateWithLifecycle()
     
+    // A playlist's songs in the playlist's own saved order (cross refs arrive sorted by position);
+    // filtering allTracks would instead yield library order.
+    val tracksById = remember(allTracks) { allTracks.associateBy { it.id } }
+    fun playlistTracksInOrder(playlistId: Int): List<TrackEntity> =
+        allPlaylistTrackCrossRefs.filter { it.playlistId == playlistId }.mapNotNull { tracksById[it.trackId] }
+
     val playerBgColor by viewModel.currentBgColor.collectAsStateWithLifecycle()
     val liquidPaletteEnabled by viewModel.liquidPaletteEnabled.collectAsStateWithLifecycle()
 
@@ -524,18 +530,12 @@ fun MainScreenLayout(
                                 }
                             },
                             onExportPlaylist = {
-                                val playlistTrackIds = allPlaylistTrackCrossRefs
-                                    .filter { it.playlistId == currentActivePlaylist.id }
-                                    .map { it.trackId }
-                                val pTracks = allTracks.filter { it.id in playlistTrackIds }
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
                                 pendingExportPlaylist = Pair(currentActivePlaylist, pTracks)
                                 m3uExportLauncher.launch("${currentActivePlaylist.name}.m3u8")
                             },
                             onPlayNext = {
-                                val playlistTrackIds = allPlaylistTrackCrossRefs
-                                    .filter { it.playlistId == currentActivePlaylist.id }
-                                    .map { it.trackId }
-                                val pTracks = allTracks.filter { it.id in playlistTrackIds }
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
                                 if (pTracks.isNotEmpty()) {
                                     // playTrackNext appends after earlier "play next" items, so feeding it the
                                     // list reversed queued the playlist backwards. playTracksNext keeps order.
@@ -544,10 +544,7 @@ fun MainScreenLayout(
                                 }
                             },
                             onAddToQueue = {
-                                val playlistTrackIds = allPlaylistTrackCrossRefs
-                                    .filter { it.playlistId == currentActivePlaylist.id }
-                                    .map { it.trackId }
-                                val pTracks = allTracks.filter { it.id in playlistTrackIds }
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
                                 if (pTracks.isNotEmpty()) {
                                     viewModel.playbackController.addToQueue(pTracks)
                                     Toast.makeText(context, "Added ${pTracks.size} songs to queue", Toast.LENGTH_SHORT).show()
@@ -574,10 +571,7 @@ fun MainScreenLayout(
                                 viewModel.selectPlaylist(playlist.id)
                             },
                             onPlaylistPlay = { playlist ->
-                                val playlistTrackIds = allPlaylistTrackCrossRefs
-                                    .filter { it.playlistId == playlist.id }
-                                    .map { it.trackId }
-                                val playlistTracks = allTracks.filter { it.id in playlistTrackIds }
+                                val playlistTracks = playlistTracksInOrder(playlist.id)
                                 if (playlistTracks.isNotEmpty()) {
                                     viewModel.playbackController.setPlaybackList(playlistTracks, playlistTracks.first())
                                     viewModel.setPlayerExpanded(true)

@@ -12,12 +12,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TrackEntity::class,
         TrackFtsEntity::class,
         PlaylistEntity::class,
-        PlaylistTrackCrossRef::class,
+        PlaylistEntryEntity::class,
         PlaybackStateEntity::class,
         PlaybackHistoryEntity::class,
         SmartVolumeZoneEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -62,7 +62,7 @@ abstract class MusicDatabase : RoomDatabase() {
                     MusicDatabase::class.java,
                     "music_database"
                 )
-                .addMigrations(*migrations)
+                .addMigrations(*migrations, StableUidMigration)
                 .build()
 
                 INSTANCE = instance
