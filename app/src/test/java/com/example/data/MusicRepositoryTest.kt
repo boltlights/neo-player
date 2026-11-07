@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class MusicRepositoryTest {
 
     private lateinit var database: MusicDatabase
