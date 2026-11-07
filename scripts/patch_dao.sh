@@ -1,0 +1,2 @@
+#!/bin/bash
+sed -i 's/suspend fun insertPlaybackHistory(history: PlaybackHistoryEntity)/suspend fun insertPlaybackHistoryInternal(history: PlaybackHistoryEntity)\n\n    @Query("DELETE FROM playback_history WHERE id NOT IN (SELECT id FROM playback_history ORDER BY playedAt DESC LIMIT 500)")\n    suspend fun trimPlaybackHistory()\n\n    @Transaction\n    suspend fun insertPlaybackHistory(history: PlaybackHistoryEntity) {\n        insertPlaybackHistoryInternal(history)\n        trimPlaybackHistory()\n    }/g' app/src/main/java/com/example/data/MusicDao.kt

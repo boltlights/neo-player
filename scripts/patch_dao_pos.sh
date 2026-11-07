@@ -1,0 +1,4 @@
+#!/bin/bash
+sed -i 's/suspend fun savePlaybackState(state: PlaybackStateEntity)/suspend fun savePlaybackState(state: PlaybackStateEntity)\n\n    @Query("UPDATE playback_state SET currentPositionMs = :pos, currentTrackId = :trackId, isShuffleEnabled = :isShuffle WHERE id = 0")\n    suspend fun updatePlaybackPosition(pos: Int, trackId: Int, isShuffle: Boolean)/g' app/src/main/java/com/example/data/MusicDao.kt
+sed -i 's/suspend fun savePlaybackState(state: PlaybackStateEntity) {/suspend fun savePlaybackState(state: PlaybackStateEntity) {\n        musicDao.savePlaybackState(state)\n    }\n\n    suspend fun updatePlaybackPosition(pos: Int, trackId: Int, isShuffle: Boolean) {\n        musicDao.updatePlaybackPosition(pos, trackId, isShuffle)\n    }/g' app/src/main/java/com/example/data/MusicRepository.kt
+sed -i 's/musicDao.savePlaybackState(state)//g' app/src/main/java/com/example/data/MusicRepository.kt

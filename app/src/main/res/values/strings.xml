@@ -1,0 +1,57 @@
+<resources>
+    <string name="app_name">Neo Player</string>
+
+    <!-- Playback controller and playback notifications -->
+    <string name="notification_channel_name">Music Playback</string>
+    <string name="notification_channel_description">Shows playback controls and artwork for active audio</string>
+    <string name="playback_error_skipping">Playback error, skipping...</string>
+    <string name="playback_error_format">Playback error: %1$s</string>
+    <string name="error_playing_track">Error playing track: %1$s</string>
+    <string name="connected_to_playback_service">Connected to PlaybackService</string>
+    <string name="playback_speed_format">Playback speed: %1$.2fx</string>
+    <string name="pitch_format">Pitch: %1$.2fx</string>
+    <string name="shuffle_enabled">Shuffle enabled</string>
+    <string name="shuffle_disabled">Shuffle disabled</string>
+    <string name="repeat_all">Repeat: All</string>
+    <string name="repeat_one">Repeat: One</string>
+    <string name="repeat_off">Repeat: Off</string>
+    <string name="fast_forward_10s">Fast forward 10s</string>
+    <string name="rewind_10s">Rewind 10s</string>
+    <string name="sleep_timer_minutes">Sleep timer set for %1$d minutes</string>
+    <string name="sleep_timer_end_of_track">Sleep timer set to stop after current track</string>
+    <string name="sleep_timer_cancelled">Sleep timer cancelled</string>
+
+    <!-- Library, Scanning and File Operations -->
+    <string name="toast_scanning_mediastore">Scanning MediaStore for audio streams...</string>
+    <string name="toast_synced_songs">Synced %1$d new songs</string>
+    <string name="toast_no_new_audio">No new audio files found</string>
+    <string name="toast_permission_denied">Permission denied to read audio</string>
+    <string name="toast_importing_folder">Importing folder...</string>
+    <string name="toast_imported_from_folder">Imported %1$d new songs from folder</string>
+    <string name="toast_no_new_in_folder">No new audio files found in folder</string>
+    <string name="toast_importing_files">Importing %1$d files...</string>
+    <string name="toast_imported_songs">Imported %1$d songs</string>
+    <string name="toast_no_tracks_selected">No tracks selected</string>
+    <string name="toast_deleted_tracks">Deleted %1$d tracks</string>
+    <string name="toast_sample_tracks_added">Added 5 sample tracks successfully</string>
+
+    <!-- Queue & Playlist Operations -->
+    <string name="toast_playing_next_multi">Playing %1$d tracks next</string>
+    <string name="toast_added_queue_multi">Added %1$d tracks to queue</string>
+    <string name="toast_playing_next">Playing \'%1$s\' next</string>
+    <string name="toast_added_to_queue">Added \'%1$s\' to queue</string>
+    <string name="toast_playlist_empty">This playlist is empty</string>
+    <string name="toast_playlist_deleted">Deleted playlist \'%1$s\'</string>
+    <string name="toast_queue_shuffled_played">Queue smart-shuffled &amp; playback started</string>
+    <string name="toast_added_to_playlist">Added to %1$s</string>
+    <string name="toast_added_songs_to_playlist">Added %1$d songs to %2$s</string>
+
+    <!-- Settings & Audio FX -->
+    <string name="toast_equalizer_not_supported">System Equalizer not supported on this device</string>
+    <string name="toast_exported_success">Exported successfully</string>
+    <string name="toast_export_failed">Export failed</string>
+    <string name="toast_copied_clipboard">Copied to clipboard</string>
+    <string name="toast_updated_cover_art">Updated playlist cover art</string>
+    <string name="add_to_playlist_title">Add to Playlist</string>
+    <string name="no_tracks_available">No tracks available to add</string>
+</resources>

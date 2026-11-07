@@ -1,0 +1,6 @@
+{
+  "name": "Neo Player",
+  "description": "A sleek, minimalist offline music player with metadata extraction, playlists, persistent storage, customizable dark-themed styles, and a floating overlay widget.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

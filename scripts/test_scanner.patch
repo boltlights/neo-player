@@ -1,0 +1,35 @@
+--- app/src/main/java/com/example/util/DirectoryScanner.kt
++++ app/src/main/java/com/example/util/DirectoryScanner.kt
+@@ -34,6 +34,7 @@
+             if (path != null) {
+                 val file = File(path)
++                android.util.Log.d("DirectoryScanner", "File path: $path, exists: ${file.exists()}, isDir: ${file.isDirectory}, canRead: ${file.canRead()}")
+                 if (file.exists() && file.isDirectory && file.canRead()) {
+                     usedFileTraversal = true
+                     file.walkTopDown()
+@@ -48,8 +49,11 @@
+             if (!usedFileTraversal) {
+                 // Fallback to DocumentFile
+                 val root = DocumentFile.fromTreeUri(context, uri) ?: continue
++                android.util.Log.d("DirectoryScanner", "Fallback to DocumentFile for $uri")
+                 scanDocumentFileRecursively(root, excludedUris, onAudioFileFound)
+             }
+         }
+     }
+ 
+     private suspend fun scanDocumentFileRecursively(
+@@ -58,9 +62,11 @@
+         onAudioFileFound: suspend (Uri, String?) -> Unit
+     ) {
+         if (excludedUris.contains(dir.uri.toString())) return
+         
+         val files = dir.listFiles()
++        android.util.Log.d("DirectoryScanner", "Scanning dir: ${dir.uri}, found ${files.size} files")
+         for (file in files) {
+             if (file.isDirectory) {
+                 scanDocumentFileRecursively(file, excludedUris, onAudioFileFound)
+             } else if (file.name != null && isAudioFile(file.name!!)) {
++                android.util.Log.d("DirectoryScanner", "Found audio file: ${file.name}")
+                 onAudioFileFound(file.uri, null)
+             }
+         }
