@@ -50,6 +50,22 @@ object DirectoryScanner {
         }
         val foundFiles = mutableListOf<Triple<Uri, String?, Long>>()
 
+        // Excluded folders are picked as their own document *trees*, so their URI strings never equal a
+        // subfolder URI built from an *included* tree (".../tree/A/document/A%2FB" vs ".../tree/A%2FB").
+        // Compare by document ID (SAF) and by real path (file scans) instead.
+        val excludedDocIds = excludedUris.mapNotNull { raw ->
+            try {
+                android.provider.DocumentsContract.getTreeDocumentId(Uri.parse(raw))
+            } catch (e: Exception) {
+                null
+            }
+        }.toSet()
+        val excludedPaths = excludedUris.mapNotNull { raw ->
+            val u = Uri.parse(raw)
+            if (u.scheme == "file") u.path else getPathFromTreeUri(u)
+        }.map { it.trimEnd('/') }.filter { it.isNotEmpty() }.toSet()
+        val excluded = ExcludedSet(excludedUris, excludedDocIds, excludedPaths)
+
         for (uriString in includedUris) {
             val uri = Uri.parse(uriString)
             
@@ -58,7 +74,7 @@ object DirectoryScanner {
                 if (path != null) {
                     val rootDir = File(path)
                     if (rootDir.exists() && rootDir.isDirectory && rootDir.canRead()) {
-                        scanLocalFileDirRecursively(rootDir, excludedUris, foundFiles)
+                        scanLocalFileDirRecursively(rootDir, excluded, foundFiles)
                         continue
                     }
                 }
@@ -74,7 +90,8 @@ object DirectoryScanner {
             } ?: continue
             
             val docId = android.provider.DocumentsContract.getTreeDocumentId(uri)
-            scanDocumentFileFast(context, uri, docId, excludedUris, foundFiles, useCache)
+            if (excluded.isExcludedDoc(docId, null)) continue
+            scanDocumentFileFast(context, uri, docId, excluded, foundFiles, useCache)
         }
 
         if (useCache) {
@@ -93,12 +110,27 @@ object DirectoryScanner {
         }
     }
 
+    private class ExcludedSet(
+        val rawUris: Set<String>,
+        val docIds: Set<String>,
+        val paths: Set<String>
+    ) {
+        fun isExcludedDoc(docId: String, docUri: String?): Boolean =
+            docId in docIds || (docUri != null && docUri in rawUris)
+
+        fun isExcludedDir(dir: File): Boolean {
+            if (rawUris.contains(Uri.fromFile(dir).toString())) return true
+            val path = dir.absolutePath.trimEnd('/')
+            return paths.any { path == it || path.startsWith("$it/") }
+        }
+    }
+
     private fun scanLocalFileDirRecursively(
         dir: File,
-        excludedUris: Set<String>,
+        excluded: ExcludedSet,
         results: MutableList<Triple<Uri, String?, Long>>
     ) {
-        if (excludedUris.contains(Uri.fromFile(dir).toString())) return
+        if (excluded.isExcludedDir(dir)) return
         val list = dir.listFiles() ?: return
 
         // Sort files and subdirectories naturally
@@ -114,7 +146,7 @@ object DirectoryScanner {
         // Then recurse into subdirectories in natural order
         for (file in sortedList) {
             if (file.isDirectory) {
-                scanLocalFileDirRecursively(file, excludedUris, results)
+                scanLocalFileDirRecursively(file, excluded, results)
             }
         }
     }
@@ -124,7 +156,7 @@ object DirectoryScanner {
         context: Context,
         treeUri: Uri,
         documentId: String,
-        excludedUris: Set<String>,
+        excluded: ExcludedSet,
         results: MutableList<Triple<Uri, String?, Long>>,
         useCache: Boolean = false
     ) {
@@ -140,8 +172,8 @@ object DirectoryScanner {
                 }
                 for (dirId in cached.subDirIds) {
                     val childDirUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, dirId)
-                    if (!excludedUris.contains(childDirUri.toString())) {
-                        scanDocumentFileFast(context, treeUri, dirId, excludedUris, results, useCache)
+                    if (!excluded.isExcludedDoc(dirId, childDirUri.toString())) {
+                        scanDocumentFileFast(context, treeUri, dirId, excluded, results, useCache)
                     }
                 }
                 return
@@ -205,8 +237,8 @@ object DirectoryScanner {
 
         for (dirId in dirs) {
             val dirUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, dirId)
-            if (!excludedUris.contains(dirUri.toString())) {
-                scanDocumentFileFast(context, treeUri, dirId, excludedUris, results, useCache)
+            if (!excluded.isExcludedDoc(dirId, dirUri.toString())) {
+                scanDocumentFileFast(context, treeUri, dirId, excluded, results, useCache)
             }
         }
     }
