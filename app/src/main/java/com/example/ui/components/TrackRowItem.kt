@@ -207,8 +207,11 @@ fun TrackRowItem(
             enableDismissFromStartToEnd = true,
             enableDismissFromEndToStart = false,
             backgroundContent = {
+                // Draw only while a swipe is actually happening. M3's `progress` is 1.0 when the row is at
+                // rest, so the old `progress > 0.05f` check painted this light accent layer behind every row
+                // permanently; it leaked through the anti-aliased rounded corners as faint ")(" arcs.
                 val progress = dismissState.progress
-                if (progress > 0.05f) {
+                if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd && progress > 0.05f) {
                     val bgColor = accentColor.copy(alpha = (0.28f + progress * 0.6f).coerceIn(0.28f, 0.95f))
 
                     Box(

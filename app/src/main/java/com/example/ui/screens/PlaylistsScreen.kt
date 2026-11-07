@@ -693,7 +693,10 @@ fun PlaylistTrackItem(
         enableDismissFromEndToStart = false,
         backgroundContent = {
             val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd
-            val progress = if (isSwiping) dismissState.progress else 0f
+            // Nothing behind the row at rest: even at 28% alpha this layer leaked through the row's
+            // anti-aliased rounded corners as faint arcs at the screen edges.
+            if (!isSwiping) return@SwipeToDismissBox
+            val progress = dismissState.progress
             val bgColor = accentColor.copy(alpha = (0.28f + progress * 0.6f).coerceIn(0.28f, 0.95f))
 
             Box(
