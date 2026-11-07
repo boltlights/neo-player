@@ -139,6 +139,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchLyricsIfMissing(track: TrackEntity) = library.fetchLyricsIfMissing(track)
     fun deleteTrack(ctx: Context, track: TrackEntity) = library.deleteTrack(ctx, track) { playback.setPlayerExpanded(false) }
     fun deleteTracks(ctx: Context, tracks: List<TrackEntity>) = library.deleteTracks(ctx, tracks) { playback.setPlayerExpanded(false) }
+    fun onDeleteConfirmationResult(granted: Boolean) = library.onDeleteConfirmationResult(context, granted)
     fun scanMediaStore(ctx: Context, onCompleted: (Int) -> Unit) = library.scanMediaStore(ctx, onCompleted)
     fun importAudioFiles(ctx: Context, uris: List<Uri>, onCompleted: (Int) -> Unit) = library.importAudioFiles(ctx, uris, onCompleted)
     fun importAudioFolder(ctx: Context, folderUri: Uri, onCompleted: (Int) -> Unit) = library.importAudioFolder(ctx, folderUri, onCompleted)

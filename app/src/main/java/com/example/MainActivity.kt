@@ -96,10 +96,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
             val deleteLauncher = rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()) { result ->
-                if (result.resultCode == android.app.Activity.RESULT_OK) {
-                    // The user granted permission, the file is usually deleted automatically or we can retry
-                    viewModel.performAutoRefresh()
-                }
+                // On OK the system has deleted the files; only now remove them from the library/playlists.
+                viewModel.onDeleteConfirmationResult(result.resultCode == android.app.Activity.RESULT_OK)
             }
             LaunchedEffect(viewModel) {
                 viewModel.deleteIntentSender.collect { intentSender ->
@@ -539,9 +537,9 @@ fun MainScreenLayout(
                                     .map { it.trackId }
                                 val pTracks = allTracks.filter { it.id in playlistTrackIds }
                                 if (pTracks.isNotEmpty()) {
-                                    pTracks.asReversed().forEach { track ->
-                                        viewModel.playbackController.playTrackNext(track)
-                                    }
+                                    // playTrackNext appends after earlier "play next" items, so feeding it the
+                                    // list reversed queued the playlist backwards. playTracksNext keeps order.
+                                    viewModel.playbackController.playTracksNext(pTracks)
                                     Toast.makeText(context, "Playing next: ${currentActivePlaylist.name}", Toast.LENGTH_SHORT).show()
                                 }
                             },

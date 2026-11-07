@@ -10,6 +10,7 @@ import com.example.data.MusicRepository
 import com.example.data.SettingsRepository
 import com.example.data.TrackEntity
 import com.example.PlaybackController
+import com.example.util.DeleteResult
 import com.example.util.FileDeleter
 import com.example.util.MediaStoreManager
 import com.example.util.MetadataExtractor
@@ -230,34 +231,20 @@ class LibraryViewModel(
         }
     }
 
-    fun deleteTrack(context: Context, track: TrackEntity, onStopPlayer: () -> Unit = {}) {
-        scope.launch {
-            val isCurrentTrack = playbackController.currentTrack.value?.id == track.id
-            if (isCurrentTrack) {
-                playbackController.stopAndClear()
-                onStopPlayer()
-            } else {
-                playbackController.removeTrackFromQueue(track.id)
-            }
+    /** Tracks whose files await the system "allow deletion?" dialog; their rows are removed only on OK. */
+    private val pendingDeletionTracks = mutableListOf<TrackEntity>()
 
-            withContext(Dispatchers.IO) {
-                try {
-                    val sender1 = FileDeleter.deleteSafely(context, track.filePath)
-                    if (sender1 != null) { _deleteIntentSender.emit(sender1) }
-                    track.artPath?.let { path ->
-                        val sender2 = FileDeleter.deleteSafely(context, path)
-                        if (sender2 != null) { _deleteIntentSender.emit(sender2) }
-                    }
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    e.printStackTrace()
-                }
-                repository.deleteTrack(track.id)
-            }
-        }
-    }
+    fun deleteTrack(context: Context, track: TrackEntity, onStopPlayer: () -> Unit = {}) =
+        deleteTracks(context, listOf(track), onStopPlayer)
 
+    /**
+     * Deletes the files first and removes a track from the library (which cascades to playlists) only
+     * once its file is really gone. Previously the row was removed immediately, even when the system
+     * dialog was cancelled or the delete silently failed, so songs vanished from playlists while their
+     * files stayed on disk and came back on the next scan.
+     */
     fun deleteTracks(context: Context, tracks: List<TrackEntity>, onStopPlayer: () -> Unit = {}) {
+        if (tracks.isEmpty()) return
         scope.launch {
             val currentTrackId = playbackController.currentTrack.value?.id
             var stopPlayer = false
@@ -273,22 +260,63 @@ class LibraryViewModel(
                 onStopPlayer()
             }
 
+            val needsConfirmation = mutableListOf<Pair<TrackEntity, DeleteResult.NeedsUserConfirmation>>()
+            val failed = mutableListOf<TrackEntity>()
             withContext(Dispatchers.IO) {
                 for (track in tracks) {
-                    try {
-                        val sender1 = FileDeleter.deleteSafely(context, track.filePath)
-                        if (sender1 != null) { _deleteIntentSender.emit(sender1) }
-                        track.artPath?.let { path ->
-                            val sender2 = FileDeleter.deleteSafely(context, path)
-                            if (sender2 != null) { _deleteIntentSender.emit(sender2) }
+                    // Prefer the content URI: raw-path deletes of shared media fail on Android 11+.
+                    val target = track.sourceUri?.takeIf { it.startsWith("content://") } ?: track.filePath
+                    when (val result = FileDeleter.delete(context, target)) {
+                        is DeleteResult.Deleted -> {
+                            deleteAppPrivateArt(context, track)
+                            repository.deleteTrack(track.id)
                         }
-                    } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        e.printStackTrace()
+                        is DeleteResult.NeedsUserConfirmation -> needsConfirmation.add(track to result)
+                        is DeleteResult.Failed -> failed.add(track)
                     }
-                    repository.deleteTrack(track.id)
                 }
             }
+
+            if (needsConfirmation.isNotEmpty()) {
+                // One system dialog for the whole selection instead of one per song (Android 11+).
+                val combined = if (needsConfirmation.size > 1) {
+                    FileDeleter.combinedConfirmation(context, needsConfirmation.map { it.second.uri })
+                } else null
+                pendingDeletionTracks.clear()
+                if (combined != null) {
+                    pendingDeletionTracks.addAll(needsConfirmation.map { it.first })
+                    _deleteIntentSender.emit(combined)
+                } else {
+                    // Android 10 can only confirm one item at a time; the rest stay in the library.
+                    pendingDeletionTracks.add(needsConfirmation.first().first)
+                    _deleteIntentSender.emit(needsConfirmation.first().second.intentSender)
+                }
+            }
+            if (failed.isNotEmpty()) {
+                val msg = if (failed.size == 1) "Couldn't delete \"${failed.first().title}\"" else "Couldn't delete ${failed.size} songs"
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** Called with the result of the system delete-confirmation dialog. */
+    fun onDeleteConfirmationResult(context: Context, granted: Boolean) {
+        val tracks = pendingDeletionTracks.toList()
+        pendingDeletionTracks.clear()
+        if (!granted || tracks.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            for (track in tracks) {
+                deleteAppPrivateArt(context, track)
+                repository.deleteTrack(track.id)
+            }
+        }
+    }
+
+    private fun deleteAppPrivateArt(context: Context, track: TrackEntity) {
+        val art = track.artPath ?: return
+        // Never touch shared files here: only app-generated artwork (sample tracks) is ours to remove.
+        if (FileDeleter.isAppPrivateFile(context, art)) {
+            try { java.io.File(art).delete() } catch (_: Exception) {}
         }
     }
 
