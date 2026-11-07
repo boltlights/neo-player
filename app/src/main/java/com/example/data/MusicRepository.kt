@@ -40,8 +40,17 @@ class MusicRepository(private val musicDao: MusicDao) {
         return musicDao.getPlayCountForTrack(trackId)
     }
     
+    /**
+     * Chunked: SQLite on Android 10 and below allows at most 999 bound variables per statement, so a
+     * single IN (...) with a large restored queue (e.g. "shuffle all" on a big library) crashed on launch.
+     */
     suspend fun getTracksByIds(ids: List<Int>): List<TrackEntity> {
-        return musicDao.getTracksByIds(ids)
+        if (ids.size <= MAX_SQL_VARIABLES) return musicDao.getTracksByIds(ids)
+        return ids.chunked(MAX_SQL_VARIABLES).flatMap { musicDao.getTracksByIds(it) }
+    }
+
+    private companion object {
+        const val MAX_SQL_VARIABLES = 900
     }
 
     suspend fun getTrackById(id: Int): TrackEntity? {

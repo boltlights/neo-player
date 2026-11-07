@@ -112,6 +112,13 @@ class PlaybackViewModel(
                 saveCurrentPlaybackState()
             }
         }
+        // Persist the exact position when playback pauses/stops; the periodic save below only runs while
+        // playing, so pausing and then having the process killed lost up to 5 seconds plus queue edits.
+        scope.launch {
+            playbackController.isPlaying.collect { playing ->
+                if (!playing) saveCurrentPlaybackState()
+            }
+        }
         scope.launch {
             while (isActive) {
                 delay(5000L)
@@ -123,6 +130,13 @@ class PlaybackViewModel(
     }
 
     private suspend fun restoreQueueState() {
+        // The PlaybackController (and its player) is app-scoped and outlives this ViewModel. If the user
+        // backed out of the activity while music kept playing and then reopened the app, restoring here
+        // replaced the live queue with the last saved snapshot and jumped playback back a few seconds.
+        if (playbackController.currentPlaybackList.value.isNotEmpty()) {
+            isRestoreCompleted = true
+            return
+        }
         val playbackState = repository.getPlaybackState()
         if (playbackState != null) {
             val baseQueueIdsStr = playbackState.baseQueueTrackIds
