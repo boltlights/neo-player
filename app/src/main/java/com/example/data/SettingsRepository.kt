@@ -89,7 +89,8 @@ class SettingsRepository(context: Context) {
     val replayGainPreAmpDb: StateFlow<Float> = _replayGainPreAmpDb.asStateFlow()
 
     private val folderMutex = Mutex()
-    private val scope = CoroutineScope(Dispatchers.IO)
+    // Writes call apply() directly: it is already async and, unlike one coroutine per write, preserves
+    // order, so rapid slider changes can no longer persist a stale value.
 
     init {
             _themeStyle.value = try {
@@ -141,52 +142,52 @@ class SettingsRepository(context: Context) {
 
     fun setThemeStyle(style: MusicThemeStyle) {
         _themeStyle.value = style
-        scope.launch { sharedPrefs.edit().putString("theme_style", style.name).apply() }
+        sharedPrefs.edit().putString("theme_style", style.name).apply()
     }
 
     fun setAppThemeMode(mode: AppThemeMode) {
         _appThemeMode.value = mode
-        scope.launch { sharedPrefs.edit().putString("app_theme_mode", mode.name).apply() }
+        sharedPrefs.edit().putString("app_theme_mode", mode.name).apply()
     }
 
     fun setUseBlackTheme(enabled: Boolean) {
         _useBlackTheme.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("use_black_theme", enabled).apply() }
+        sharedPrefs.edit().putBoolean("use_black_theme", enabled).apply()
     }
 
     fun setAlbumArtStyle(style: AlbumArtStyle) {
         _albumArtStyle.value = style
-        scope.launch { sharedPrefs.edit().putString("album_art_style", style.name).apply() }
+        sharedPrefs.edit().putString("album_art_style", style.name).apply()
     }
 
     fun setLibraryAlbumArtStyle(style: LibraryAlbumArtStyle) {
         _libraryAlbumArtStyle.value = style
-        scope.launch { sharedPrefs.edit().putString("library_album_art_style", style.name).apply() }
+        sharedPrefs.edit().putString("library_album_art_style", style.name).apply()
     }
 
     fun setRotateCd(rotate: Boolean) {
         _rotateCd.value = rotate
-        scope.launch { sharedPrefs.edit().putBoolean("rotate_cd", rotate).apply() }
+        sharedPrefs.edit().putBoolean("rotate_cd", rotate).apply()
     }
 
     fun setLiquidPalette(enabled: Boolean) {
         _liquidPalette.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("liquid_palette", enabled).apply() }
+        sharedPrefs.edit().putBoolean("liquid_palette", enabled).apply()
     }
 
     fun setHideSampleMusic(hide: Boolean) {
         _hideSampleMusic.value = hide
-        scope.launch { sharedPrefs.edit().putBoolean("hide_sample_music", hide).apply() }
+        sharedPrefs.edit().putBoolean("hide_sample_music", hide).apply()
     }
 
     fun setSortOption(option: String) {
         _sortOption.value = option
-        scope.launch { sharedPrefs.edit().putString("sort_option", option).apply() }
+        sharedPrefs.edit().putString("sort_option", option).apply()
     }
 
     fun setLibraryTabs(tabs: List<String>) {
         _libraryTabs.value = tabs
-        scope.launch { sharedPrefs.edit().putString("library_tabs_v2", tabs.joinToString(",")).apply() }
+        sharedPrefs.edit().putString("library_tabs_v2", tabs.joinToString(",")).apply()
     }
 
     suspend fun addIncludedFolder(uri: String) {
@@ -223,56 +224,56 @@ class SettingsRepository(context: Context) {
 
     fun setAutoRefreshEnabled(enabled: Boolean) {
         _autoRefreshEnabled.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("auto_refresh_enabled", enabled).apply() }
+        sharedPrefs.edit().putBoolean("auto_refresh_enabled", enabled).apply()
     }
 
     fun setGaplessPlayback(enabled: Boolean) {
         _gaplessPlayback.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("gapless_playback", enabled).apply() }
+        sharedPrefs.edit().putBoolean("gapless_playback", enabled).apply()
     }
 
     fun setCrossfadeEnabled(enabled: Boolean) {
         _crossfadeEnabled.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("crossfade_enabled", enabled).apply() }
+        sharedPrefs.edit().putBoolean("crossfade_enabled", enabled).apply()
     }
 
     fun setCrossfadeDuration(durationSeconds: Int) {
         _crossfadeDuration.value = durationSeconds
-        scope.launch { sharedPrefs.edit().putInt("crossfade_duration", durationSeconds).apply() }
+        sharedPrefs.edit().putInt("crossfade_duration", durationSeconds).apply()
     }
 
     fun setAutoSyncMediaStore(enabled: Boolean) {
         _autoSyncMediaStore.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("auto_sync_mediastore", enabled).apply() }
+        sharedPrefs.edit().putBoolean("auto_sync_mediastore", enabled).apply()
     }
 
     fun setIntelligentSorting(enabled: Boolean) {
         _intelligentSorting.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("intelligent_sorting", enabled).apply() }
+        sharedPrefs.edit().putBoolean("intelligent_sorting", enabled).apply()
     }
 
     fun setSeparators(separators: String) {
         _separators.value = separators
-        scope.launch { sharedPrefs.edit().putString("separators", separators).apply() }
+        sharedPrefs.edit().putString("separators", separators).apply()
     }
 
     fun setUseFileTreeCache(enabled: Boolean) {
         _useFileTreeCache.value = enabled
-        scope.launch { sharedPrefs.edit().putBoolean("use_file_tree_cache", enabled).apply() }
+        sharedPrefs.edit().putBoolean("use_file_tree_cache", enabled).apply()
     }
 
     fun setLocationMode(mode: String) {
         _locationMode.value = mode
-        scope.launch { sharedPrefs.edit().putString("location_mode", mode).apply() }
+        sharedPrefs.edit().putString("location_mode", mode).apply()
     }
 
     fun setReplayGainMode(mode: com.example.ReplayGainMode) {
         _replayGainMode.value = mode
-        scope.launch { sharedPrefs.edit().putString("replaygain_mode", mode.name).apply() }
+        sharedPrefs.edit().putString("replaygain_mode", mode.name).apply()
     }
 
     fun setReplayGainPreAmpDb(db: Float) {
         _replayGainPreAmpDb.value = db
-        scope.launch { sharedPrefs.edit().putFloat("replaygain_preamp_db", db).apply() }
+        sharedPrefs.edit().putFloat("replaygain_preamp_db", db).apply()
     }
 }
