@@ -16,14 +16,32 @@ object AudioQualityUtil {
     private var classCache: Class<*>? = null
     
 
+    /**
+     * Builds the badge from values actually read from the file. Unknown parts are omitted: this used to
+     * fill gaps with invented defaults (FLAC -> "24-BIT / 48.0KHZ", no path -> "MP3 • 16-BIT / 44.1KHZ",
+     * unreadable WAV -> "16-BIT / 22.1KHZ • MONO"), and the UI colours "24-BIT" FLACs as hi-res.
+     */
+    private fun badge(format: String, bitrateKbps: Long?, bits: Int?, sampleRateHz: Double?, extra: String? = null): String {
+        val parts = mutableListOf(format.ifEmpty { "AUDIO" })
+        if (bitrateKbps != null && bitrateKbps > 0) parts.add("${bitrateKbps}KBPS")
+        val validBits = bits?.takeIf { it > 0 }
+        val rate = sampleRateHz?.takeIf { it > 0 }?.let { String.format(Locale.US, "%.1fKHZ", it / 1000.0) }
+        when {
+            validBits != null && rate != null -> parts.add("$validBits-BIT / $rate")
+            validBits != null -> parts.add("$validBits-BIT")
+            rate != null -> parts.add(rate)
+        }
+        if (extra != null) parts.add(extra)
+        return parts.joinToString(" • ")
+    }
+
     suspend fun getQualityString(context: Context, track: TrackEntity): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val filePath = track.filePath
-        if (filePath.isNullOrEmpty()) return@withContext "MP3 • 16-BIT / 44.1KHZ"
-        
+        // Folder-imported tracks keep their location in sourceUri rather than filePath.
+        val filePath = track.filePath.ifEmpty { track.sourceUri.orEmpty() }
         val file = File(filePath)
         val extension = if (file.exists()) file.extension.uppercase(Locale.US) else {
-            // fallback to get from path string
-            filePath.substringAfterLast('.', "").uppercase(Locale.US)
+            // fallback to get from path string (decoded, so SAF document ids like "...%2Fsong.flac" work)
+            Uri.decode(filePath).substringAfterLast('/').substringAfterLast('.', "").uppercase(Locale.US)
         }
 
         if (extension == "WAV" && file.exists()) {
@@ -44,17 +62,15 @@ object AudioQualityUtil {
                                         (header[24].toInt() and 0xFF)
                         val bitsPerSample = ((header[35].toInt() and 0xFF) shl 8) or (header[34].toInt() and 0xFF)
                         
-                        val rateKhz = String.format(Locale.US, "%.1f", sampleRate / 1000.0)
                         val chLabel = if (channels == 1) "MONO" else "STEREO"
-                        
-                        return@withContext "WAV • $bitsPerSample-BIT / ${rateKhz}KHZ • $chLabel"
+                        return@withContext badge("WAV", null, bitsPerSample, sampleRate.toDouble(), chLabel)
                     }
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 timber.log.Timber.tag("AudioQualityUtil").w(e, "Failed to read WAV header for %s", track.title)
             }
-            return@withContext "WAV • 16-BIT / 22.1KHZ • MONO"
+            // Unreadable/unusual header: fall through to the generic readers below.
         }
 
         // Use Jaudiotagger for other tracks if file exists
@@ -64,26 +80,12 @@ object AudioQualityUtil {
                 val header = audioFile.audioHeader
                 
                 val format = if (extension.isNotEmpty()) extension else header.encodingType.uppercase(Locale.US)
-                val parts = mutableListOf<String>()
-                parts.add(format)
-                
-                val bitrateKbps = header.bitRate.toLongOrNull()
-                if (bitrateKbps != null && bitrateKbps > 0) {
-                    parts.add("${bitrateKbps}KBPS")
-                }
-                
-                val sampleRateDouble = header.sampleRate.toDoubleOrNull()
-                val rateKhz = if (sampleRateDouble != null) {
-                    String.format(Locale.US, "%.1f", sampleRateDouble / 1000.0)
-                } else {
-                    if (extension == "FLAC") "48.0" else "44.1"
-                }
-                
-                val bits = header.bitsPerSample
-                val bitsStr = if (bits > 0) bits.toString() else if (extension == "FLAC") "24" else "16"
-                
-                parts.add("$bitsStr-BIT / ${rateKhz}KHZ")
-                return@withContext parts.joinToString(" • ")
+                return@withContext badge(
+                    format,
+                    header.bitRate.toLongOrNull(),
+                    header.bitsPerSample,
+                    header.sampleRate.toDoubleOrNull()
+                )
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -95,6 +97,8 @@ object AudioQualityUtil {
         try {
             if (track.sourceUri != null && track.sourceUri.startsWith("content://")) {
                 retriever.setDataSource(context, Uri.parse(track.sourceUri))
+            } else if (filePath.startsWith("file://")) {
+                retriever.setDataSource(context, Uri.parse(filePath))
             } else {
                 retriever.setDataSource(filePath)
             }
@@ -105,14 +109,6 @@ object AudioQualityUtil {
                 bitrateStr.toLongOrNull()?.let { it / 1000 }
             } else null
 
-            val format = if (extension.isNotEmpty()) extension else "AUDIO"
-            val parts = mutableListOf<String>()
-            parts.add(format)
-            
-            if (bitrateKbps != null) {
-                parts.add("${bitrateKbps}KBPS")
-            }
-            
             val sampleRateStr = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)
             } else null
@@ -120,18 +116,12 @@ object AudioQualityUtil {
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)
             } else null
 
-            val sampleRateDouble = sampleRateStr?.toDoubleOrNull()
-            val rateKhz = if (sampleRateDouble != null) {
-                String.format(Locale.US, "%.1f", sampleRateDouble / 1000.0)
-            } else {
-                if (extension == "FLAC") "48.0" else "44.1"
-            }
-            
-            val bits = bitsPerSampleStr?.toIntOrNull() ?: if (extension == "FLAC") 24 else 16
-            
-            parts.add("$bits-BIT / ${rateKhz}KHZ")
-            
-            return@withContext parts.joinToString(" • ")
+            return@withContext badge(
+                extension,
+                bitrateKbps,
+                bitsPerSampleStr?.toIntOrNull(),
+                sampleRateStr?.toDoubleOrNull()
+            )
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             timber.log.Timber.tag("AudioQualityUtil").w(e, "MediaMetadataRetriever audio format read failed for %s", track.title)
@@ -141,9 +131,8 @@ object AudioQualityUtil {
             } catch (e: Exception) {}
         }
 
-        // Safe Fallback
-        val displayExt = if (extension.isNotEmpty()) extension else "MP3"
-        return@withContext "$displayExt • 16-BIT / 44.1KHZ"
+        // Nothing readable: show only the container format we know (no invented bit depth / rate).
+        return@withContext badge(extension, null, null, null)
     }
 
     /**

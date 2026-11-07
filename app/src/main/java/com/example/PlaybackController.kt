@@ -260,13 +260,22 @@ class PlaybackController(private val context: Context) {
                         val newIndex = this@apply.currentMediaItemIndex
                         lastMediaItemIndex = newIndex
                         updateCurrentTrackState(mediaItem)
-                        if (sleepTimerEndOfTrack && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                        com.example.widget.MusicWidgetProvider.updateAllWidgets(context)
+                    }
+
+                    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                        // "End of track" sleep timer: pauseAtEndOfMediaItems pauses at the end of the
+                        // current song *before* moving on, reporting this reason. Disarm here. Previously
+                        // the timer was disarmed on the next media-item transition, which only happens
+                        // when the user presses Play, and that code paused again, so the first Play press
+                        // after the timer skipped to the next song and stayed paused.
+                        if (!playWhenReady && sleepTimerEndOfTrack &&
+                            reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM
+                        ) {
                             sleepTimerEndOfTrack = false
                             this@apply.pauseAtEndOfMediaItems = false
-                            this@PlaybackController.smoothPause()
                             _sleepTimerRemainingSeconds.value = null
                         }
-                        com.example.widget.MusicWidgetProvider.updateAllWidgets(context)
                     }
 
                     override fun onPlaybackStateChanged(playbackState: Int) {

@@ -55,13 +55,10 @@ class MediaStoreManager(
         if (uriStr != null && uriStr.startsWith("content://")) {
             try {
                 val uri = Uri.parse(uriStr)
-                val pfd = context.contentResolver.openAssetFileDescriptor(uri, "r")
-                if (pfd != null) {
-                    val len = pfd.length
-                    pfd.close()
-                    if (len > 0 || len == android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH) {
-                        return true
-                    }
+                // use{}: the descriptor was leaked if reading its length threw.
+                val len = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
+                if (len != null && (len > 0 || len == android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH)) {
+                    return true
                 }
             } catch (e: Exception) {
                 return false

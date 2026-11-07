@@ -43,6 +43,15 @@ class MusicApplication : Application(), AppContainer, coil.ImageLoaderFactory {
         super.onCreate()
         if (BuildConfig.DEBUG) {
             timber.log.Timber.plant(timber.log.Timber.DebugTree())
+            // Debug builds only: log the allocation stack of any file/cursor/retriever that is never
+            // closed, so leaks ("A resource failed to call release") can be traced to their source.
+            android.os.StrictMode.setVmPolicy(
+                android.os.StrictMode.VmPolicy.Builder()
+                    .detectLeakedClosableObjects()
+                    .detectLeakedSqlLiteObjects()
+                    .penaltyLog()
+                    .build()
+            )
         }
         com.example.util.CrashReporter.init(this)
         playbackController = PlaybackController(this)

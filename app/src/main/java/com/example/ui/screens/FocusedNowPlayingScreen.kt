@@ -798,7 +798,9 @@ fun FocusedNowPlayingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    "Embed ID3 lyrics or place a .lrc file in the same folder",
+                                    // Neo reads lyrics embedded in the file's tags only; sidecar .lrc files are
+                                    // not supported (the old hint suggested placing one next to the song).
+                                    "Embed lyrics (plain or synced LRC) in the song's tags to show them here",
                                     color = onBgColor.copy(alpha = 0.35f),
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
