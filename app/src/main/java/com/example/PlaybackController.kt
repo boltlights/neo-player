@@ -109,7 +109,13 @@ class PlaybackController(private val context: Context) {
 
     fun smoothPlay(durationOverrideMs: Long? = null) {
         val player = exoPlayer ?: return
-        
+
+        // After a playback error (or stop) the player sits in STATE_IDLE and play() alone does nothing.
+        // Previously only togglePlayPause re-prepared, so tapping a queued song or next/prev was silent.
+        if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+            player.prepare()
+        }
+
         fadeJob?.cancel()
         player.volume = 0f
         player.play()
@@ -891,10 +897,13 @@ class PlaybackController(private val context: Context) {
                     }
                     
                     if (remaining <= 0) {
+                        // Volume is already faded out; pause immediately. The old code started a 300ms
+                        // fade-out and then cancelSleepTimer() reset volume to 1.0 while still playing,
+                        // producing a short full-volume blast right at the end of the timer.
+                        fadeJob?.cancel()
                         exoPlayer?.volume = 0f
-                        smoothPause()
-                        exoPlayer?.volume = 1f
-                        cancelSleepTimer()
+                        exoPlayer?.pause()
+                        cancelSleepTimer() // also restores volume to 1.0 for the next play
                         break
                     }
                 } else {
