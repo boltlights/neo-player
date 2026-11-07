@@ -734,6 +734,10 @@ class PlaybackController(private val context: Context) {
                     val index = list.indexOfFirst { it.id == activeTrack.id }
                     if (index != -1) {
                         seekTo(index, positionMs.toLong())
+                        // The position tracker only runs while playing, and the media-item transition
+                        // above reset it to 0. Without this the restored song showed 00:00 and the save
+                        // triggered by the seek overwrote the resume point with 0 on every launch.
+                        _currentPosition.value = positionMs
                     }
                 }
             }
