@@ -313,6 +313,93 @@ fun MainScreenLayout(
         }
     }
 
+    // Full playlist manager (rename, delete, cover, remove songs, shuffle, M3U export). Shown over the
+    // library for user playlists; previously it was only reachable via Screen.PLAYLISTS, which nothing opened.
+    val PlaylistManagerDetail: @Composable (PlaylistEntity) -> Unit = { currentActivePlaylist ->
+                        val tracksInPlaylist by viewModel.playlistTracks.collectAsStateWithLifecycle()
+                        PlaylistDetailScreen(
+                            playlist = currentActivePlaylist,
+                            tracksInPlaylist = tracksInPlaylist,
+                            allAvailableTracks = allTracks,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            accentColor = accentColor,
+                            onBgColor = onBgColor,
+                            surfaceColor = surfaceColor,
+                            onBack = { viewModel.setActivePlaylistForViewer(null) },
+                            onPlayTrack = { song ->
+                                viewModel.playbackController.setPlaybackList(tracksInPlaylist, song)
+                                viewModel.setPlayerExpanded(true)
+                            },
+                            onShufflePlay = {
+                                viewModel.playbackController.playShuffledList(tracksInPlaylist)
+                                viewModel.setPlayerExpanded(true)
+                            },
+                            onRemoveTrack = { song ->
+                                viewModel.removeTrackFromPlaylist(currentActivePlaylist.id, song.id)
+                            },
+                            onShowProperties = { song ->
+                                trackToShowProperties = song
+                            },
+                            onDeletePlaylist = {
+                                viewModel.deletePlaylist(currentActivePlaylist.id)
+                                viewModel.setActivePlaylistForViewer(null)
+                            },
+                            onRenamePlaylist = { newName ->
+                                viewModel.renamePlaylist(currentActivePlaylist, newName)
+                                viewModel.setActivePlaylistForViewer(currentActivePlaylist.copy(name = newName))
+                            },
+                            onUpdateCoverArt = { uri ->
+                                viewModel.updatePlaylistCoverArt(currentActivePlaylist, uri)
+                                viewModel.setActivePlaylistForViewer(currentActivePlaylist.copy(coverArtUri = uri))
+                            },
+                            onAddTracks = { selectedTracks ->
+                                val dupes = viewModel.getDuplicateTrackCount(currentActivePlaylist.id, selectedTracks.map { it.id })
+                                selectedTracks.forEach { track ->
+                                    viewModel.addTrackToPlaylist(currentActivePlaylist.id, track.id)
+                                }
+                                if (dupes > 0) {
+                                    Toast.makeText(
+                                        context,
+                                        "Added ${selectedTracks.size} songs ($dupes were already in playlist)",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.toast_added_songs_to_playlist, selectedTracks.size, currentActivePlaylist.name),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            onExportPlaylist = {
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
+                                pendingExportPlaylist = Pair(currentActivePlaylist, pTracks)
+                                m3uExportLauncher.launch("${currentActivePlaylist.name}.m3u8")
+                            },
+                            onPlayNext = {
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
+                                if (pTracks.isNotEmpty()) {
+                                    // playTrackNext appends after earlier "play next" items, so feeding it the
+                                    // list reversed queued the playlist backwards. playTracksNext keeps order.
+                                    viewModel.playbackController.playTracksNext(pTracks)
+                                    Toast.makeText(context, "Playing next: ${currentActivePlaylist.name}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onAddToQueue = {
+                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
+                                if (pTracks.isNotEmpty()) {
+                                    viewModel.playbackController.addToQueue(pTracks)
+                                    Toast.makeText(context, "Added ${pTracks.size} songs to queue", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onPlayTrackNext = { track ->
+                                viewModel.playbackController.playTrackNext(track)
+                                Toast.makeText(context, context.getString(R.string.toast_playing_next, track.title), Toast.LENGTH_SHORT).show()
+                            }
+                        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -467,94 +554,18 @@ fun MainScreenLayout(
                     onSettingsClick = { viewModel.selectScreen(Screen.SETTINGS) },
                     onCreatePlaylistClick = { showPlaylistCreationDialog = true },
                     libraryTabs = libraryTabs,
-                    onReorderLibrary = { viewModel.updateLibraryOrder(it) }
+                    onReorderLibrary = { viewModel.updateLibraryOrder(it) },
+                    onOpenPlaylistManager = { pl ->
+                        viewModel.selectPlaylist(pl.id)
+                        viewModel.setActivePlaylistForViewer(pl)
+                    },
+                    onImportPlaylistClick = { m3uImportLauncher.launch(arrayOf("*/*")) }
                 )
 
                 Screen.PLAYLISTS -> {
                     if (activePlaylistForViewer != null) {
                         val currentActivePlaylist = activePlaylistForViewer!!
-                        val tracksInPlaylist by viewModel.playlistTracks.collectAsStateWithLifecycle()
-                        PlaylistDetailScreen(
-                            playlist = currentActivePlaylist,
-                            tracksInPlaylist = tracksInPlaylist,
-                            allAvailableTracks = allTracks,
-                            currentTrack = currentTrack,
-                            isPlaying = isPlaying,
-                            accentColor = accentColor,
-                            onBgColor = onBgColor,
-                            surfaceColor = surfaceColor,
-                            onBack = { viewModel.setActivePlaylistForViewer(null) },
-                            onPlayTrack = { song ->
-                                viewModel.playbackController.setPlaybackList(tracksInPlaylist, song)
-                                viewModel.setPlayerExpanded(true)
-                            },
-                            onShufflePlay = {
-                                viewModel.playbackController.playShuffledList(tracksInPlaylist)
-                                viewModel.setPlayerExpanded(true)
-                            },
-                            onRemoveTrack = { song ->
-                                viewModel.removeTrackFromPlaylist(currentActivePlaylist.id, song.id)
-                            },
-                            onShowProperties = { song ->
-                                trackToShowProperties = song
-                            },
-                            onDeletePlaylist = {
-                                viewModel.deletePlaylist(currentActivePlaylist.id)
-                                viewModel.setActivePlaylistForViewer(null)
-                            },
-                            onRenamePlaylist = { newName ->
-                                viewModel.renamePlaylist(currentActivePlaylist, newName)
-                                viewModel.setActivePlaylistForViewer(currentActivePlaylist.copy(name = newName))
-                            },
-                            onUpdateCoverArt = { uri ->
-                                viewModel.updatePlaylistCoverArt(currentActivePlaylist, uri)
-                                viewModel.setActivePlaylistForViewer(currentActivePlaylist.copy(coverArtUri = uri))
-                            },
-                            onAddTracks = { selectedTracks ->
-                                val dupes = viewModel.getDuplicateTrackCount(currentActivePlaylist.id, selectedTracks.map { it.id })
-                                selectedTracks.forEach { track ->
-                                    viewModel.addTrackToPlaylist(currentActivePlaylist.id, track.id)
-                                }
-                                if (dupes > 0) {
-                                    Toast.makeText(
-                                        context,
-                                        "Added ${selectedTracks.size} songs ($dupes were already in playlist)",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.toast_added_songs_to_playlist, selectedTracks.size, currentActivePlaylist.name),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            onExportPlaylist = {
-                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
-                                pendingExportPlaylist = Pair(currentActivePlaylist, pTracks)
-                                m3uExportLauncher.launch("${currentActivePlaylist.name}.m3u8")
-                            },
-                            onPlayNext = {
-                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
-                                if (pTracks.isNotEmpty()) {
-                                    // playTrackNext appends after earlier "play next" items, so feeding it the
-                                    // list reversed queued the playlist backwards. playTracksNext keeps order.
-                                    viewModel.playbackController.playTracksNext(pTracks)
-                                    Toast.makeText(context, "Playing next: ${currentActivePlaylist.name}", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onAddToQueue = {
-                                val pTracks = playlistTracksInOrder(currentActivePlaylist.id)
-                                if (pTracks.isNotEmpty()) {
-                                    viewModel.playbackController.addToQueue(pTracks)
-                                    Toast.makeText(context, "Added ${pTracks.size} songs to queue", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onPlayTrackNext = { track ->
-                                viewModel.playbackController.playTrackNext(track)
-                                Toast.makeText(context, context.getString(R.string.toast_playing_next, track.title), Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                        PlaylistManagerDetail(currentActivePlaylist)
                     } else {
                         PlaylistsScreen(
                             playlists = allPlaylists,
@@ -595,8 +606,20 @@ fun MainScreenLayout(
                 )
             }
 
+            // Playlist manager drawn over the library, which stays composed underneath so Back
+            // (system or on-screen) returns to the same library tab instead of resetting to Songs.
+            if (currentScreen == Screen.LIBRARY && activePlaylistForViewer != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    PlaylistManagerDetail(activePlaylistForViewer!!)
+                }
+            }
+
             // Floating Shuffle Button above minimized player in bottom right
-            if (!isExpanded && !isPlayerExpanded && allTracks.isNotEmpty()) {
+            if (!isExpanded && !isPlayerExpanded && allTracks.isNotEmpty() && activePlaylistForViewer == null) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -714,8 +737,14 @@ fun MainScreenLayout(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            viewModel.addTrackToPlaylist(plist.id, selectedTrack.id)
-                                            Toast.makeText(context, context.getString(R.string.toast_added_to_playlist, plist.name), Toast.LENGTH_SHORT).show()
+                                            // Don't claim "Added" for a song that's already there (the insert is ignored).
+                                            val alreadyIn = allPlaylistTrackCrossRefs.any { it.playlistId == plist.id && it.trackId == selectedTrack.id }
+                                            if (alreadyIn) {
+                                                Toast.makeText(context, "Already in ${plist.name}", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                viewModel.addTrackToPlaylist(plist.id, selectedTrack.id)
+                                                Toast.makeText(context, context.getString(R.string.toast_added_to_playlist, plist.name), Toast.LENGTH_SHORT).show()
+                                            }
                                             expandedTrackForPlaylistAssociation = null
                                         }
                                         .padding(vertical = 12.dp, horizontal = 16.dp)

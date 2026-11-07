@@ -138,7 +138,10 @@ fun LibraryScreen(
     indexedAlbums: List<com.example.data.IndexedAlbum> = emptyList(),
     indexedArtists: List<com.example.data.IndexedArtist> = emptyList(),
     indexedGenres: List<com.example.data.IndexedGenre> = emptyList(),
-    onReorderLibrary: (List<TrackEntity>) -> Unit = {}
+    onReorderLibrary: (List<TrackEntity>) -> Unit = {},
+    /** Opens the full playlist manager (rename/delete/remove songs...) for a user playlist. */
+    onOpenPlaylistManager: (PlaylistEntity) -> Unit = {},
+    onImportPlaylistClick: () -> Unit = {}
 ) {
     var isMultiSelectActive by remember { mutableStateOf(false) }
     val selectedTracks = remember { mutableStateListOf<TrackEntity>() }
@@ -424,6 +427,13 @@ fun LibraryScreen(
                                                         onImportFolderClick()
                                                     }
                                                 )
+                                                DropdownMenuItem(
+                                                    text = { Text("Import Playlist (M3U)") },
+                                                    onClick = {
+                                                        showOverflowMenu = false
+                                                        onImportPlaylistClick()
+                                                    }
+                                                )
                                                 if (!hideSampleMusicButton) {
                                                     DropdownMenuItem(
                                                         text = { Text("Generate 5 Samples") },
@@ -669,7 +679,9 @@ fun LibraryScreen(
                                 accentColor = accentColor,
                                 libraryAlbumArtStyle = libraryAlbumArtStyle,
                                 onCreatePlaylistClick = onCreatePlaylistClick,
-                                onPlaylistClick = { activePlaylistDetails = it }
+                                // User playlists open the full manager; the automatic ones (Recently
+                                // Played / Most Played / Recently Added, negative ids) keep the simple view.
+                                onPlaylistClick = { pl -> if (pl.id > 0) onOpenPlaylistManager(pl) else activePlaylistDetails = pl }
                             )
                         }
                     }

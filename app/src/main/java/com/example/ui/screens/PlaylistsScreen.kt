@@ -508,7 +508,8 @@ fun PlaylistDetailScreen(
                         isPlaying = isPlaying && currentTrack?.id == song.id,
                         onPlay = { onPlayTrack(song) },
                         onPlayNext = { onPlayTrackNext(song) },
-                        onShowProperties = { onShowProperties(song) }
+                        onShowProperties = { onShowProperties(song) },
+                        onRemove = { onRemoveTrack(song) }
                     )
                 }
             }
@@ -658,8 +659,11 @@ fun PlaylistTrackItem(
     isPlaying: Boolean = false,
     onPlay: () -> Unit,
     onPlayNext: () -> Unit = {},
-    onShowProperties: () -> Unit = {}
+    onShowProperties: () -> Unit = {},
+    /** Remove from this playlist. Previously the screen received this callback but never offered it. */
+    onRemove: (() -> Unit)? = null
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -766,8 +770,17 @@ fun PlaylistTrackItem(
                     }
                 }
                 
-                IconButton(onClick = onShowProperties) {
-                    Icon(Icons.Default.MoreHoriz, contentDescription = "More", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreHoriz, contentDescription = "More", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Play next") }, onClick = { showMenu = false; onPlayNext() })
+                        if (onRemove != null) {
+                            DropdownMenuItem(text = { Text("Remove from playlist") }, onClick = { showMenu = false; onRemove() })
+                        }
+                        DropdownMenuItem(text = { Text("Properties") }, onClick = { showMenu = false; onShowProperties() })
+                    }
                 }
             }
         }
