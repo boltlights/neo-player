@@ -82,8 +82,10 @@ import com.example.TrackPropertiesDialog
 import com.example.ui.components.SkipPrevIcon
 import com.example.ui.components.TrackArtworkWidget
 import com.example.ui.components.FocusedPlayerArtworkWidget
-import com.example.ui.components.coverCarouselPage
+import com.example.ui.components.coverCarouselArt
+import com.example.ui.components.coverCarouselFade
 import com.example.ui.components.coverCarouselParallax
+import com.example.ui.components.coverCarouselPin
 import com.example.util.AudioQualityUtil
 import com.example.util.formatDuration
 
@@ -854,7 +856,6 @@ fun FocusedNowPlayingScreen(
                 val pageSpacing = 16.dp
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 val pageSpacingPx = with(density) { pageSpacing.toPx() }
-                val carouselCornerPx = with(density) { 28.dp.toPx() }
 
                 androidx.compose.foundation.pager.HorizontalPager(
                     state = pagerState,
@@ -872,7 +873,7 @@ fun FocusedNowPlayingScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .coverCarouselPage(pagerState, page, pageSpacingPx, carouselCornerPx)
+                                .coverCarouselPin(pagerState, page, pageSpacingPx)
                         ) {
                             TrackArtworkAndInfoWrapper(
                                 track = pageTrack,
@@ -888,9 +889,9 @@ fun FocusedNowPlayingScreen(
                                 durationMs = if (isCurrentPage) playbackProgress.duration else 0,
                                 onSeekTo = { viewModel.playbackController.seekTo(it) },
                                 onScrubPositionUpdate = { activeScrubPositionMs = it },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .coverCarouselParallax(pagerState, page)
+                                carouselPagerState = pagerState,
+                                carouselPage = page,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
@@ -1076,9 +1077,13 @@ private fun TrackArtworkAndInfoWrapper(
     durationMs: Int = 0,
     onSeekTo: (Int) -> Unit = {},
     onScrubPositionUpdate: (Int?) -> Unit = {},
+    // Set when shown inside the cover pager: drives the masked-carousel swipe transition.
+    carouselPagerState: androidx.compose.foundation.pager.PagerState? = null,
+    carouselPage: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     var isUserRotatingCd by remember { mutableStateOf(false) }
     // The CD gesture below is keyed only on track.id, so it must read these through updated state;
@@ -1145,8 +1150,17 @@ private fun TrackArtworkAndInfoWrapper(
                         modifier = Modifier
                             .size(cdArtSize)
                             .scale(scalePulse)
-                            .shadow(24.dp, CircleShape)
-                            .clip(CircleShape)
+                            .then(
+                                if (carouselPagerState != null) {
+                                    Modifier.coverCarouselArt(
+                                        carouselPagerState, carouselPage, CircleShape,
+                                        windowCornerPx = with(density) { 28.dp.toPx() },
+                                        shadowElevationPx = with(density) { 24.dp.toPx() }
+                                    )
+                                } else {
+                                    Modifier.shadow(24.dp, CircleShape).clip(CircleShape)
+                                }
+                            )
                             .pointerInput(track.id) {
                                 awaitEachGesture {
                                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -1271,6 +1285,7 @@ private fun TrackArtworkAndInfoWrapper(
                             accentColor = accentColor,
                             modifier = Modifier
                                 .size(cdArtSize - 16.dp)
+                                .then(if (carouselPagerState != null) Modifier.coverCarouselParallax(carouselPagerState, carouselPage) else Modifier)
                                 .clip(CircleShape)
                                 .rotate(currentRotation)
                         )
@@ -1294,8 +1309,18 @@ private fun TrackArtworkAndInfoWrapper(
                         modifier = Modifier
                             .size(artSize)
                             .scale(scalePulse)
-                            .shadow(16.dp, shape)
-                            .clip(shape)
+                            .then(
+                                if (carouselPagerState != null) {
+                                    Modifier.coverCarouselArt(
+                                        carouselPagerState, carouselPage, shape,
+                                        // Cut edges match the cover's own corners (square art stays square).
+                                        windowCornerPx = with(density) { (if (albumArtStyle == AlbumArtStyle.SQUARE) 0.dp else 24.dp).toPx() },
+                                        shadowElevationPx = with(density) { 16.dp.toPx() }
+                                    )
+                                } else {
+                                    Modifier.shadow(16.dp, shape).clip(shape)
+                                }
+                            )
                             .combinedClickable(
                                 onClick = {},
                                 onLongClick = {
@@ -1309,7 +1334,9 @@ private fun TrackArtworkAndInfoWrapper(
                             artPath = track.artPath,
                             trackTitle = track.title,
                             accentColor = accentColor,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(if (carouselPagerState != null) Modifier.coverCarouselParallax(carouselPagerState, carouselPage) else Modifier)
                         )
                     }
                 }
@@ -1318,7 +1345,9 @@ private fun TrackArtworkAndInfoWrapper(
         
         // Text track descriptions
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (carouselPagerState != null) Modifier.coverCarouselFade(carouselPagerState, carouselPage) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
