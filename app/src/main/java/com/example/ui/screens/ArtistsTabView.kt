@@ -102,7 +102,7 @@ fun ArtistsTabView(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    "${artistTracks.size} songs",
+                                    com.example.util.songCount(artistTracks.size),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                                 )

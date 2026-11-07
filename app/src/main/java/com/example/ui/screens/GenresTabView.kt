@@ -99,7 +99,7 @@ fun GenresTabView(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    "${genreTracks.size} songs",
+                                    com.example.util.songCount(genreTracks.size),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                                 )

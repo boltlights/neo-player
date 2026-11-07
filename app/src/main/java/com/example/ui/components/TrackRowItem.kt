@@ -139,7 +139,7 @@ fun TrackRowItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${track.artist} • ${track.album}",
+                    text = com.example.util.artistAndAlbum(track.artist, track.album),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     maxLines = 1,

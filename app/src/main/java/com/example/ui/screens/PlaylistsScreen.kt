@@ -589,7 +589,7 @@ fun PlaylistDetailScreen(
                         Column {
                             Text("Playlist", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
                             Text(playlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("${tracksInPlaylist.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
+                            Text(com.example.util.songCount(tracksInPlaylist.size), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
                         }
                     }
                     

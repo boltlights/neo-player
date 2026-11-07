@@ -37,6 +37,10 @@ fun LibraryCategoryDetailView(
     onPlayArtist: (String) -> Unit = {},
     onPlayGenre: (String) -> Unit = {}
 ) {
+    // The system Back gesture must close this detail page like the on-screen arrow does. Without it,
+    // Back from an album/artist/genre/playlist page fell through to the activity and closed the app.
+    androidx.activity.compose.BackHandler(onBack = onBack)
+
     Column(
         modifier = Modifier
             .fillMaxSize()

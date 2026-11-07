@@ -93,17 +93,13 @@ fun getGenreForTrack(track: TrackEntity): String {
     if (!metaGenre.isNullOrBlank() && !metaGenre.equals("Unknown", ignoreCase = true)) {
         return metaGenre.split("/").firstOrNull()?.trim()?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: metaGenre
     }
-    val t = track.title.lowercase()
-    val a = track.artist.lowercase()
-    return when {
-        t.contains("lofi") || a.contains("lofi") || t.contains("relax") || t.contains("chill") || t.contains("ambient") || t.contains("dream") -> "Ambient & Lofi"
-        t.contains("jazz") || a.contains("jazz") || t.contains("sax") || t.contains("blues") -> "Jazz & Blues"
-        t.contains("rock") || a.contains("rock") || t.contains("guitar") || t.contains("metal") || t.contains("indie") -> "Rock & Indie"
-        t.contains("piano") || t.contains("sleep") || t.contains("classical") || t.contains("instrumental") || t.contains("meditation") -> "Classical & Instrumental"
-        t.contains("pop") || a.contains("pop") || t.contains("dance") || t.contains("beat") -> "Pop & Electronic"
-        else -> "Acoustic & Others"
-    }
+    // Untagged songs are grouped honestly. This used to invent genres from words in the title/artist
+    // (e.g. "Don't Dream It's Over" -> "Ambient & Lofi", everything else -> "Acoustic & Others"),
+    // mixing made-up categories in with real ones.
+    return UNKNOWN_GENRE
 }
+
+const val UNKNOWN_GENRE = "Unknown Genre"
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -184,7 +180,7 @@ fun LibraryScreen(
         }
         LibraryCategoryDetailView(
             title = activeAlbumDetails!!,
-            subtitle = "${albumTracks.size} SONGS IN ALBUM",
+            subtitle = com.example.util.songCountCaps(albumTracks.size, "IN ALBUM"),
             tracksList = albumTracks,
             currentTrack = currentTrack,
             isPlaying = isPlaying,
@@ -207,7 +203,7 @@ fun LibraryScreen(
         }
         LibraryCategoryDetailView(
             title = activeArtistDetails!!,
-            subtitle = "${artistTracks.size} SONGS BY ARTIST",
+            subtitle = com.example.util.songCountCaps(artistTracks.size, "BY ARTIST"),
             tracksList = artistTracks,
             currentTrack = currentTrack,
             isPlaying = isPlaying,
@@ -227,7 +223,7 @@ fun LibraryScreen(
         }
         LibraryCategoryDetailView(
             title = activeGenreDetails!!,
-            subtitle = "${genreTracks.size} SONGS IN GENRE",
+            subtitle = com.example.util.songCountCaps(genreTracks.size, "IN GENRE"),
             tracksList = genreTracks,
             currentTrack = currentTrack,
             isPlaying = isPlaying,
@@ -256,7 +252,7 @@ fun LibraryScreen(
         }
         LibraryCategoryDetailView(
             title = pl.name,
-            subtitle = "${playlistTracks.size} SONGS IN PLAYLIST",
+            subtitle = com.example.util.songCountCaps(playlistTracks.size, "IN PLAYLIST"),
             tracksList = playlistTracks,
             currentTrack = currentTrack,
             isPlaying = isPlaying,
@@ -707,7 +703,7 @@ fun LibraryScreen(
                     )
 
                     Text(
-                        "Select target playlist for ${selectedTracks.size} songs",
+                        "Select target playlist for ${com.example.util.songCount(selectedTracks.size)}",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         modifier = Modifier.padding(bottom = 16.dp),

@@ -416,7 +416,7 @@ fun SongsTabView(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${track.artist} • ${track.album}",
+                            text = com.example.util.artistAndAlbum(track.artist, track.album),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             maxLines = 1,
