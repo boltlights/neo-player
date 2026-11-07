@@ -82,6 +82,8 @@ import com.example.TrackPropertiesDialog
 import com.example.ui.components.SkipPrevIcon
 import com.example.ui.components.TrackArtworkWidget
 import com.example.ui.components.FocusedPlayerArtworkWidget
+import com.example.ui.components.coverCarouselPage
+import com.example.ui.components.coverCarouselParallax
 import com.example.util.AudioQualityUtil
 import com.example.util.formatDuration
 
@@ -827,15 +829,32 @@ fun FocusedNowPlayingScreen(
                     }
                 }
 
-                LaunchedEffect(pagerState.isScrollInProgress) {
-                    if (!pagerState.isScrollInProgress) {
-                        val selectedIndex = pagerState.currentPage
-                        if (selectedIndex != currentIndex && selectedIndex in currentPlaylist.indices) {
-                            val selectedTrack = currentPlaylist[selectedIndex]
-                            viewModel.playbackController.playTrack(selectedTrack)
+                // Only a swipe the *user* made may change the song. Programmatic scrolls (track changed from
+                // the notification, auto-advance, queue edits) must never feed back into playback.
+                var userSwiped by remember { mutableStateOf(false) }
+                val latestPlaylist by rememberUpdatedState(currentPlaylist)
+                val latestTrackId by rememberUpdatedState(updatedTrack.id)
+                LaunchedEffect(pagerState) {
+                    pagerState.interactionSource.interactions.collect { interaction ->
+                        if (interaction is androidx.compose.foundation.interaction.DragInteraction.Start) userSwiped = true
+                    }
+                }
+                LaunchedEffect(pagerState) {
+                    snapshotFlow { pagerState.isScrollInProgress }.collect { scrolling ->
+                        if (!scrolling && userSwiped) {
+                            userSwiped = false
+                            val selected = latestPlaylist.getOrNull(pagerState.currentPage)
+                            if (selected != null && selected.id != latestTrackId) {
+                                viewModel.playbackController.playTrack(selected)
+                            }
                         }
                     }
                 }
+
+                val pageSpacing = 16.dp
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val pageSpacingPx = with(density) { pageSpacing.toPx() }
+                val carouselCornerPx = with(density) { 28.dp.toPx() }
 
                 androidx.compose.foundation.pager.HorizontalPager(
                     state = pagerState,
@@ -844,25 +863,36 @@ fun FocusedNowPlayingScreen(
                         .fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
                     beyondViewportPageCount = 1,
-                    pageSpacing = 16.dp,
+                    pageSpacing = pageSpacing,
                     verticalAlignment = Alignment.CenterVertically
                 ) { page ->
                     val pageTrack = currentPlaylist.getOrNull(page)
                     if (pageTrack != null) {
-                        TrackArtworkAndInfoWrapper(
-                            track = pageTrack,
-                            isPlaying = isPlaying && page == currentIndex,
-                            albumArtStyle = albumArtStyle,
-                            rotateCd = rotateCd,
-                            accentColor = accentColor,
-                            onBgColor = onBgColor,
-                            onLongClick = { handleShowProperties(pageTrack) },
-                            currentPositionMs = playbackProgress.position,
-                            durationMs = playbackProgress.duration,
-                            onSeekTo = { viewModel.playbackController.seekTo(it) },
-                            onScrubPositionUpdate = { activeScrubPositionMs = it },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        val isCurrentPage = page == currentIndex
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .coverCarouselPage(pagerState, page, pageSpacingPx, carouselCornerPx)
+                        ) {
+                            TrackArtworkAndInfoWrapper(
+                                track = pageTrack,
+                                isPlaying = isPlaying && isCurrentPage,
+                                albumArtStyle = albumArtStyle,
+                                rotateCd = rotateCd,
+                                accentColor = accentColor,
+                                onBgColor = onBgColor,
+                                onLongClick = { handleShowProperties(pageTrack) },
+                                // Neighbour pages don't need the 4x/second position ticks; feeding them
+                                // the live position recomposed every visible page mid-swipe (jank).
+                                currentPositionMs = if (isCurrentPage) playbackProgress.position else 0,
+                                durationMs = if (isCurrentPage) playbackProgress.duration else 0,
+                                onSeekTo = { viewModel.playbackController.seekTo(it) },
+                                onScrubPositionUpdate = { activeScrubPositionMs = it },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .coverCarouselParallax(pagerState, page)
+                            )
+                        }
                     }
                 }
             }
