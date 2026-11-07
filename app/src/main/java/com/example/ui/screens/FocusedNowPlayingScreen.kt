@@ -1051,6 +1051,13 @@ private fun TrackArtworkAndInfoWrapper(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     var isUserRotatingCd by remember { mutableStateOf(false) }
+    // The CD gesture below is keyed only on track.id, so it must read these through updated state;
+    // otherwise it captures the position from when the track started and scrubbing jumps back to ~0:00.
+    val latestPositionMs by rememberUpdatedState(currentPositionMs)
+    val latestDurationMs by rememberUpdatedState(durationMs)
+    val latestOnSeekTo by rememberUpdatedState(onSeekTo)
+    val latestOnScrubPositionUpdate by rememberUpdatedState(onScrubPositionUpdate)
+    val latestOnLongClick by rememberUpdatedState(onLongClick)
 
     Column(
         modifier = modifier,
@@ -1092,7 +1099,7 @@ private fun TrackArtworkAndInfoWrapper(
                 val maxW = maxWidth
                 val maxH = maxHeight
                 val minDim = if (maxW < maxH) maxW else maxH
-                val artSize = remember(minDim) {
+                val artSize = remember(minDim, albumArtStyle) {
                     if (albumArtStyle == AlbumArtStyle.SQUARE || albumArtStyle == AlbumArtStyle.ROUNDED) {
                         // Square and Rounded styles use Auxio spacing logic: 16dp horizontal margins
                         (minDim - 32.dp).coerceAtLeast(180.dp)
@@ -1129,14 +1136,14 @@ private fun TrackArtworkAndInfoWrapper(
                                     ).toFloat()
                                     var lastTime = SystemClock.uptimeMillis()
                                     var lastSeekTime = 0L
-                                    var localScrubPos = currentPositionMs
+                                    var localScrubPos = latestPositionMs
 
                                     // Long press detection job
                                     val longPressJob = coroutineScope.launch {
                                         delay(500)
                                         if (!isRotating) {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onLongClick(track)
+                                            latestOnLongClick(track)
                                         }
                                     }
 
@@ -1175,8 +1182,8 @@ private fun TrackArtworkAndInfoWrapper(
                                                     isRotating = true
                                                     isUserRotatingCd = true
                                                     longPressJob.cancel()
-                                                    localScrubPos = currentPositionMs
-                                                    onScrubPositionUpdate(localScrubPos)
+                                                    localScrubPos = latestPositionMs
+                                                    latestOnScrubPositionUpdate(localScrubPos)
                                                     change.consume()
                                                 }
                                             }
@@ -1193,12 +1200,12 @@ private fun TrackArtworkAndInfoWrapper(
                                                 val angularSpeed = abs(delta) / (safeDt / 1000f) // degrees / second
                                                 val speedMultiplier = 1f + (angularSpeed / 120f).coerceIn(0f, 4f)
                                                 val seekDeltaMs = (delta * 40f * speedMultiplier).toInt()
-                                                localScrubPos = (localScrubPos + seekDeltaMs).coerceIn(0, durationMs.coerceAtLeast(1))
-                                                onScrubPositionUpdate(localScrubPos)
+                                                localScrubPos = (localScrubPos + seekDeltaMs).coerceIn(0, latestDurationMs.coerceAtLeast(1))
+                                                latestOnScrubPositionUpdate(localScrubPos)
 
                                                 // Throttle seeks to ExoPlayer to ~100ms for smooth audio with zero buffer thrashing
                                                 if (now - lastSeekTime >= 100L) {
-                                                    onSeekTo(localScrubPos)
+                                                    latestOnSeekTo(localScrubPos)
                                                     lastSeekTime = now
                                                 }
                                             }
@@ -1210,11 +1217,11 @@ private fun TrackArtworkAndInfoWrapper(
                                         longPressJob.cancel()
                                         if (isRotating) {
                                             isUserRotatingCd = false
-                                            onSeekTo(localScrubPos)
+                                            latestOnSeekTo(localScrubPos)
                                             // Keep scrub position pinned for 250ms while ExoPlayer finishes async seek, preventing snapback
                                             coroutineScope.launch {
                                                 delay(250)
-                                                onScrubPositionUpdate(null)
+                                                latestOnScrubPositionUpdate(null)
                                             }
                                         }
                                     }
@@ -1318,21 +1325,19 @@ private fun PlaybackProgressSlider(
     val displayedPosition = scrubPositionMs ?: sliderDragPositionMs ?: playbackProgress.position
     val duration = playbackProgress.duration.coerceAtLeast(1)
 
-    val progressVal = if (playbackProgress.isBuffering && scrubPositionMs == null && sliderDragPositionMs == null) {
-        0f
-    } else {
-        (displayedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-    }
+    // Keep showing the last known position while buffering (e.g. right after a seek) instead of
+    // snapping the bar back to 0.
+    val progressVal = (displayedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
 
     Column {
         Slider(
             value = progressVal,
             onValueChange = { targetRatio ->
-                val targetMs = (targetRatio * duration).toInt()
-                sliderDragPositionMs = targetMs
-                viewModel.playbackController.seekTo(targetMs)
+                // Only move the thumb while dragging; seeking on every frame thrashes ExoPlayer's buffer.
+                sliderDragPositionMs = (targetRatio * duration).toInt()
             },
             onValueChangeFinished = {
+                sliderDragPositionMs?.let { viewModel.playbackController.seekTo(it) }
                 sliderDragPositionMs = null
             },
             colors = SliderDefaults.colors(
