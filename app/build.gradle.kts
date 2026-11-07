@@ -50,7 +50,11 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      // Use the project keystore only if it exists; otherwise fall back to the standard Android debug
+      // key (~/.android/debug.keystore). Without this, debug builds failed to package at all.
+      if (file("${rootDir}/debug.keystore").exists()) {
+        signingConfig = signingConfigs.getByName("debugConfig")
+      }
     }
   }
   compileOptions {
