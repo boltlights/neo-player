@@ -180,7 +180,8 @@ class PlaylistViewModel(
                         for (track in tracks) {
                             val durationSec = (track.durationMs / 1000).coerceAtLeast(0)
                             writer.write("#EXTINF:$durationSec,${track.artist} - ${track.title}\n")
-                            writer.write("${track.filePath}\n")
+                            // Folder-imported tracks have no file path; writing it produced blank entries.
+                            writer.write("${track.filePath.ifBlank { track.sourceUri ?: "" }}\n")
                         }
                         writer.flush()
                     }
@@ -248,10 +249,13 @@ class PlaylistViewModel(
                 val matchedTracks = mutableListOf<TrackEntity>()
 
                 for (path in trackPaths) {
-                    val fileName = java.io.File(path).name
-                    val match = allTracks.firstOrNull { 
-                        it.filePath.equals(path, ignoreCase = true) || 
-                        java.io.File(it.filePath).name.equals(fileName, ignoreCase = true) 
+                    // Handle M3Us made on Windows ("C:\Music\a.mp3") and URL-encoded entries.
+                    val decoded = try { android.net.Uri.decode(path) } catch (e: Exception) { path }
+                    val fileName = decoded.substringAfterLast('/').substringAfterLast('\\')
+                    val match = allTracks.firstOrNull {
+                        it.filePath.equals(decoded, ignoreCase = true) ||
+                        it.sourceUri.equals(path, ignoreCase = true) ||
+                        (fileName.isNotEmpty() && java.io.File(it.filePath).name.equals(fileName, ignoreCase = true))
                     }
                     if (match != null) {
                         matchedTracks.add(match)

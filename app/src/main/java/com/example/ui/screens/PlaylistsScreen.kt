@@ -271,6 +271,12 @@ fun PlaylistDetailScreen(
         contract = androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             uri?.let {
+                // Photo-picker grants are temporary; without persisting, the cover broke after an app restart.
+                try {
+                    context.contentResolver.takePersistableUriPermission(it, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (e: Exception) {
+                    timber.log.Timber.tag("PlaylistsScreen").w(e, "Could not persist cover art permission for %s", it)
+                }
                 onUpdateCoverArt(it.toString())
                 android.widget.Toast.makeText(context, context.getString(com.example.R.string.toast_updated_cover_art), android.widget.Toast.LENGTH_SHORT).show()
             }
