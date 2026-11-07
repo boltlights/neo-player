@@ -117,8 +117,15 @@ fun FocusedPlayerArtworkWidget(
         
         if (isValidArt) {
             val context = LocalContext.current
-            
-            val request = remember(artPath) {
+            // Decode at the display's true pixel resolution: the artwork can never be shown larger than
+            // the screen's short side, so this is the sharpest image the panel can physically show.
+            // (Small headroom for the 1.05x "pulse" scale animation.)
+            val targetPx = remember {
+                val dm = context.resources.displayMetrics
+                (minOf(dm.widthPixels, dm.heightPixels) * 1.1f).toInt().coerceIn(1024, 3072)
+            }
+
+            val request = remember(artPath, targetPx) {
                 val uri = if (artPath!!.startsWith("content://") || artPath.startsWith("audiocover://") || artPath.startsWith("file://")) {
                     android.net.Uri.parse(artPath)
                 } else {
@@ -126,20 +133,25 @@ fun FocusedPlayerArtworkWidget(
                 }
                 ImageRequest.Builder(context)
                     .data(uri)
-                    .size(2048, 2048)
-                    .precision(Precision.AUTOMATIC)
+                    .size(targetPx, targetPx)
+                    // INEXACT: downscale large art to fit, but never upscale small art into a huge bitmap.
+                    .precision(Precision.INEXACT)
                     .allowHardware(true)
                     .bitmapConfig(Bitmap.Config.ARGB_8888)
                     .crossfade(200)
-                    .memoryCacheKey("art_full_$artPath")
-                    .diskCacheKey("art_full_$artPath")
+                    // Show the already-cached list thumbnail instantly while the full-res art decodes.
+                    .placeholderMemoryCacheKey("art_thumb_180_$artPath")
+                    // Fallback when no thumbnail is cached. Set on the request (not AsyncImage's
+                    // `placeholder` param) because that param would override the thumbnail placeholder.
+                    .placeholder(R.drawable.img_default_album_art)
+                    .memoryCacheKey("art_full_${targetPx}_$artPath")
+                    .diskCacheKey("art_full_${targetPx}_$artPath")
                     .build()
             }
 
             AsyncImage(
                 model = request,
                 contentDescription = "$trackTitle album art",
-                placeholder = painterResource(id = R.drawable.img_default_album_art),
                 error = painterResource(id = R.drawable.img_default_album_art),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

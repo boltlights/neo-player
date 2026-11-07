@@ -97,8 +97,23 @@ class AudioAlbumArtFetcher(
     private val options: Options
 ) : Fetcher {
 
+    /**
+     * A request is a "thumbnail" request only when Coil asks for a small, explicit pixel size
+     * (list rows ask for 180px). Everything else — the focused player's screen-sized request,
+     * Size.ORIGINAL, or an undefined dimension — gets the original embedded artwork.
+     *
+     * Previously this checked `options.size == Size.ORIGINAL`, but the focused player requests an
+     * explicit pixel size, so it always fell through to the ~200px RGB_565 list thumbnail and was
+     * upscaled to fill the screen (the "low-res album art" bug).
+     */
+    private fun isThumbnailRequest(size: Size): Boolean {
+        val w = (size.width as? coil.size.Dimension.Pixels)?.px ?: return false
+        val h = (size.height as? coil.size.Dimension.Pixels)?.px ?: return false
+        return maxOf(w, h) <= THUMBNAIL_MAX_REQUEST_PX
+    }
+
     override suspend fun fetch(): FetchResult? {
-        val isOriginal = options.size == Size.ORIGINAL
+        val isOriginal = !isThumbnailRequest(options.size)
         val rawKey = data.toString()
         val safeKey = AudioThumbnailCache.toSafeKey(rawKey)
 
@@ -161,18 +176,24 @@ class AudioAlbumArtFetcher(
                 val maxDim = maxOf(boundsOpts.outWidth, boundsOpts.outHeight)
 
                 if (isOriginal) {
-                    // If image is extraordinarily huge (> 2048px, e.g. 7500x7500 which is 222MB in ARGB_8888),
-                    // downsample it to safe 2048px studio bounds so it does NOT exceed Android's 100MB RecordingCanvas limit
-                    val safeBytes: ByteArray = if (maxDim > 2048) {
-                        val sampleSize = maxDim / 2048
+                    // Deliver the untouched embedded bytes (no lossy re-encode). Coil's decoder bounds the
+                    // decoded bitmap to the requested pixel size, so memory stays safe. Only truly enormous
+                    // art requested at Size.ORIGINAL (e.g. 7500x7500 = 222MB ARGB) is pre-shrunk here, to stay
+                    // under Android's 100MB RecordingCanvas limit.
+                    val safeBytes: ByteArray = if (options.size == Size.ORIGINAL && maxDim > ORIGINAL_SAFE_MAX_PX) {
                         val decodeOpts = BitmapFactory.Options().apply {
-                            inSampleSize = sampleSize.coerceAtLeast(1)
+                            inSampleSize = Integer.highestOneBit((maxDim / ORIGINAL_SAFE_MAX_PX).coerceAtLeast(1))
                             inPreferredConfig = Bitmap.Config.ARGB_8888
                         }
-                        val safeBitmap = BitmapFactory.decodeByteArray(picture, 0, picture.size, decodeOpts)
-                        if (safeBitmap != null) {
+                        val sampled = BitmapFactory.decodeByteArray(picture, 0, picture.size, decodeOpts)
+                        if (sampled != null) {
+                            val scale = ORIGINAL_SAFE_MAX_PX.toFloat() / maxOf(sampled.width, sampled.height)
+                            val safeBitmap = if (scale < 1f) {
+                                Bitmap.createScaledBitmap(sampled, (sampled.width * scale).toInt(), (sampled.height * scale).toInt(), true)
+                                    .also { if (it !== sampled) sampled.recycle() }
+                            } else sampled
                             val stream = ByteArrayOutputStream()
-                            safeBitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+                            safeBitmap.compress(Bitmap.CompressFormat.JPEG, 97, stream)
                             safeBitmap.recycle()
                             stream.toByteArray()
                         } else {
@@ -222,6 +243,13 @@ class AudioAlbumArtFetcher(
             try { retriever.release() } catch (_: Exception) {}
         }
         return null
+    }
+
+    companion object {
+        /** Requests at or below this size are served from the small list-thumbnail cache. */
+        const val THUMBNAIL_MAX_REQUEST_PX = 512
+        /** Hard cap for Size.ORIGINAL requests (4096² ARGB ≈ 67MB, under the 100MB canvas limit). */
+        const val ORIGINAL_SAFE_MAX_PX = 4096
     }
 
     class Factory(private val context: Context) : Fetcher.Factory<Uri> {
