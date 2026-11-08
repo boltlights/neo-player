@@ -118,7 +118,11 @@ class SettingsRepository(context: Context) {
             _hideSampleMusic.value = sharedPrefs.getBoolean("hide_sample_music", true)
             _liquidPalette.value = sharedPrefs.getBoolean("liquid_palette", true)
             _sortOption.value = sharedPrefs.getString("sort_option", "Filename") ?: "Filename"
-            _libraryTabs.value = (sharedPrefs.getString("library_tabs_v2", defaultTabs) ?: defaultTabs).split(",").filter { it.isNotBlank() }
+            // "Genres" was a duplicate name for the Genre tab; fold it in and drop repeats.
+            _libraryTabs.value = (sharedPrefs.getString("library_tabs_v2", defaultTabs) ?: defaultTabs).split(",")
+                .filter { it.isNotBlank() }
+                .map { if (it == "Genres") "Genre" else it }
+                .distinct()
             _includedFolders.value = sharedPrefs.getStringSet("included_folders", emptySet()) ?: emptySet()
             _excludedFolders.value = sharedPrefs.getStringSet("excluded_folders", emptySet()) ?: emptySet()
             _autoRefreshEnabled.value = sharedPrefs.getBoolean("auto_refresh_enabled", true)

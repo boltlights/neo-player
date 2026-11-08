@@ -785,7 +785,9 @@ fun LibraryTabsSettingsScreen(
     onBack: () -> Unit
 ) {
     val libraryTabs by viewModel.libraryTabs.collectAsStateWithLifecycle()
-    val allAvailableTabs = listOf("Songs", "Albums", "Artists", "Genres", "Playlists")
+    // "Genre" matches the default saved tab name; this list used to say "Genres", so the same tab
+    // was offered twice ("Genre" visible + "Genres" hidden) and enabling both showed it twice.
+    val allAvailableTabs = listOf("Songs", "Albums", "Artists", "Genre", "Playlists")
     
     // We use a local state to handle drag & drop visually before saving
     var currentTabs by remember(libraryTabs) { mutableStateOf(libraryTabs) }
