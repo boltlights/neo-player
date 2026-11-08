@@ -1,22 +1,85 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Neo Player
 
-# Run and deploy your AI Studio app
+A clean, offline music player for Android. Neo plays the music already on your phone. There are no accounts, no streaming and no ads.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/5ed4f77d-2ff6-4e98-81d7-1c60e6d7cd4b
+**Library**
+- Browse by songs, genres, artists, albums and playlists, with customizable and reorderable tabs
+- Load music from the Android media library or from folders you choose, with excluded folders
+- Search across titles, artists, albums, lyrics and tags, with `genre:`, `year:` and `tag:` filters
+- Natural sorting, so "Track 2" comes before "Track 10"
+- Album art in the lists and at full resolution in the player
 
-## Run Locally
+**Playback**
+- Gapless playback powered by Media3 / ExoPlayer
+- Queue with drag-to-reorder, swipe-to-remove and "play next"
+- Shuffle and repeat
+- Sleep timer, either by duration or at the end of the current track
+- Resumes your queue and position after a restart
+- Notification, lock-screen and headphone controls
+- Audio quality badge showing format, bitrate, bit depth and sample rate
+- Hands off to the system equalizer
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+**Now Playing**
+- Swipe between covers with an animated carousel transition
+- Album art styles: rotating CD (spin it to scrub), rounded, square, cookie and soft burst
+- Synchronized (LRC) and plain lyrics embedded in your files
+- **Neo Retro** theme, a cassette-deck player with spinning reels
 
+**Playlists**
+- Create, rename, reorder and delete playlists, and set a custom cover
+- Playlists remember songs by a stable ID, so they survive rescans and moved files
+- Import and export M3U / M3U8
+- Automatic Recently Played, Most Played and Recently Added lists
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+**Personalization**
+- Several dark color themes, Material You and pure AMOLED black
+- Driver Mode: optional location-based volume adjustment
+- Home screen widget
+
+## Requirements
+
+- Android 7.0 (API 24) or newer
+- Access to your music (the app asks for permission on first use)
+
+## Building
+
+1. Install [Android Studio](https://developer.android.com/studio) (it includes JDK 17).
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/boltlights/neo-player.git
+   ```
+3. Open the folder in Android Studio and let it sync Gradle.
+4. Run the `app` configuration on a device or emulator.
+
+Unit tests run with the `testDebugUnitTest` Gradle task (Robolectric, SDK 35).
+
+### Tech stack
+
+| Area | Library |
+|---|---|
+| Language / UI | Kotlin 2.2, Jetpack Compose, Material 3 |
+| Playback | AndroidX Media3 1.5 (ExoPlayer, MediaSession) |
+| Storage | Room (SQLite) |
+| Images | Coil |
+| Tag reading | jaudiotagger, Android MediaMetadataRetriever |
+
+## Known limitations
+
+- **Lyrics** are read only from tags inside the audio file. Separate `.lrc` files are not supported yet.
+- **ReplayGain** volume normalization is still being verified and may not apply to every file.
+- **Android Auto** shows the library, but starting playback from the car is not finished yet.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Please open an issue first for larger changes, so we can agree on the approach.
+
+## Acknowledgements
+
+- [Auxio](https://github.com/OxygenCobalt/Auxio), whose cover-swipe design and stable song IDs inspired Neo's own implementations. No Auxio code is included.
+- The open-source libraries listed under the tech stack.
+
+## License
+
+Neo Player is released under the [MIT License](LICENSE).
