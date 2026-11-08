@@ -167,21 +167,23 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
-        val session = MediaLibrarySession.Builder(this, exoPlayer, callback)
-            .setSessionActivity(pendingIntent)
-            .setBitmapLoader(com.example.util.CoilBitmapLoader(this))
-            .build()
-        
-        mediaSession = session
-        addSession(session)
-
+        // Install our notification provider *before* the session exists. It used to be set after
+        // addSession(), by which time Media3 had already picked its default provider, so playback
+        // notifications went to Media3's "default_channel_id" and this app's channel was never used.
         createNotificationChannel()
-
         val notificationProvider = DefaultMediaNotificationProvider.Builder(this)
             .setChannelId(CHANNEL_ID)
             .setChannelName(R.string.app_name)
             .build()
         setMediaNotificationProvider(notificationProvider)
+
+        val session = MediaLibrarySession.Builder(this, exoPlayer, callback)
+            .setSessionActivity(pendingIntent)
+            .setBitmapLoader(com.example.util.CoilBitmapLoader(this))
+            .build()
+
+        mediaSession = session
+        addSession(session)
     }
 
     private fun createNotificationChannel() {
@@ -196,6 +198,11 @@ class PlaybackService : MediaLibraryService() {
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
+            // Remove the stale Media3 default channel left behind by older builds, so the system
+            // notification settings show a single "Music Playback" channel.
+            if (manager.getNotificationChannel("default_channel_id") != null) {
+                manager.deleteNotificationChannel("default_channel_id")
+            }
         }
     }
 
