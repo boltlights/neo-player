@@ -15,11 +15,6 @@ class MusicRepository(private val musicDao: MusicDao) {
         _indexingState.value = state
     }
 
-    val allSmartVolumeZones: kotlinx.coroutines.flow.Flow<List<SmartVolumeZoneEntity>> = musicDao.getAllSmartVolumeZones()
-    suspend fun insertSmartVolumeZone(zone: SmartVolumeZoneEntity) = musicDao.insertSmartVolumeZone(zone)
-    suspend fun updateSmartVolumeZone(zone: SmartVolumeZoneEntity) = musicDao.updateSmartVolumeZone(zone)
-    suspend fun deleteSmartVolumeZone(zone: SmartVolumeZoneEntity) = musicDao.deleteSmartVolumeZone(zone)
-    suspend fun getSmartVolumeZone(id: Int) = musicDao.getSmartVolumeZone(id)
     val allTracks: Flow<List<TrackEntity>> = musicDao.getAllTracks()
 
     suspend fun getAllTracksSync(): List<TrackEntity> {

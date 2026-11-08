@@ -58,8 +58,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.GoogleFont
-import androidx.compose.ui.text.googlefonts.Font
 import com.example.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,18 +72,21 @@ import com.example.data.TrackEntity
 import com.example.ui.components.TrackArtworkWidget
 import com.example.util.formatDuration
 
-private val provider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs
-)
-
-private val fontName = GoogleFont("Manrope")
-
+// Manrope is bundled (res/font, SIL OFL 1.1 — see docs/licenses/Manrope-OFL.txt). It used to be
+// downloaded at runtime from Google Play services, which fails on de-Googled phones and is not
+// allowed on F-Droid. One variable-weight file serves both weights (variations need API 26+).
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 val ManropeFontFamily = FontFamily(
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.ExtraBold),
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Bold),
-    Font(googleFont = fontName, fontProvider = provider, weight = FontWeight(800))
+    androidx.compose.ui.text.font.Font(
+        R.font.manrope_variable,
+        weight = FontWeight.ExtraBold,
+        variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(800))
+    ),
+    androidx.compose.ui.text.font.Font(
+        R.font.manrope_variable,
+        weight = FontWeight.Bold,
+        variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(700))
+    )
 )
 
 fun getGenreForTrack(track: TrackEntity): String {

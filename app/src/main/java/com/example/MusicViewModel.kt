@@ -13,7 +13,6 @@ import com.example.viewmodel.LibraryViewModel
 import com.example.viewmodel.PlaybackViewModel
 import com.example.viewmodel.PlaylistViewModel
 import com.example.viewmodel.SettingsViewModel
-import com.example.viewmodel.SmartVolumeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -65,7 +64,6 @@ enum class MusicThemeStyle(
  * - [PlaybackViewModel]
  * - [SettingsViewModel]
  * - [PlaylistViewModel]
- * - [SmartVolumeViewModel]
  *
  * Forwards calls and states to maintain seamless backward compatibility with all UI screens.
  */
@@ -76,7 +74,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = musicApp.repository
     private val settingsRepository = musicApp.settingsRepository
     private val mediaStoreManager = musicApp.mediaStoreManager
-    private val geofenceManager = com.example.geofence.GeofenceManager(application)
     val playbackController = musicApp.playbackController
 
     // Domain ViewModels
@@ -84,14 +81,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val playback = PlaybackViewModel(application, repository, playbackController, viewModelScope)
     val settings = SettingsViewModel(application, settingsRepository, viewModelScope)
     val playlist = PlaylistViewModel(application, repository, viewModelScope)
-    val smartVolume = SmartVolumeViewModel(application, repository, geofenceManager, viewModelScope)
 
-    // Smart Volume
-    val allSmartVolumeZones get() = smartVolume.allSmartVolumeZones
-    fun insertSmartVolumeZone(zone: com.example.data.SmartVolumeZoneEntity) = smartVolume.insertSmartVolumeZone(zone)
-    fun updateSmartVolumeZone(zone: com.example.data.SmartVolumeZoneEntity) = smartVolume.updateSmartVolumeZone(zone)
-    fun deleteSmartVolumeZone(zone: com.example.data.SmartVolumeZoneEntity) = smartVolume.deleteSmartVolumeZone(zone)
-    fun refreshGeofences() = smartVolume.refreshGeofences()
 
     // Playlists
     val allPlaylists get() = playlist.allPlaylists

@@ -14,10 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PlaylistEntity::class,
         PlaylistEntryEntity::class,
         PlaybackStateEntity::class,
-        PlaybackHistoryEntity::class,
-        SmartVolumeZoneEntity::class
+        PlaybackHistoryEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -62,12 +61,19 @@ abstract class MusicDatabase : RoomDatabase() {
                     MusicDatabase::class.java,
                     "music_database"
                 )
-                .addMigrations(*migrations, StableUidMigration)
+                .addMigrations(*migrations, StableUidMigration, DropDriverModeMigration)
                 .build()
 
                 INSTANCE = instance
                 instance
             }
         }
+    }
+}
+
+/** v16 -> v17: Driver Mode (location-based volume zones) was removed; drop its table. */
+object DropDriverModeMigration : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS `smart_volume_zones`")
     }
 }

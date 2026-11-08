@@ -1,0 +1,36 @@
+<p>Neo plays the music already on your phone. It has no accounts, no streaming, no ads and no tracking, and it doesn't even request internet access.</p>
+
+<p><b>Library</b></p>
+<ul>
+<li>Browse songs, genres, artists, albums and playlists, with customizable tabs</li>
+<li>Load music from the system media library or from folders you choose</li>
+<li>Search titles, artists, albums, lyrics and tags, with <i>genre:</i>, <i>year:</i> and <i>tag:</i> filters</li>
+<li>Natural sorting: "Track 2" comes before "Track 10"</li>
+</ul>
+
+<p><b>Playback</b></p>
+<ul>
+<li>Gapless playback powered by Media3 / ExoPlayer</li>
+<li>Queue with drag-to-reorder, swipe-to-remove and "play next"</li>
+<li>Sleep timer, by duration or at the end of the current track</li>
+<li>Resumes your queue and position after a restart</li>
+<li>Notification, lock-screen and headphone controls</li>
+<li>Audio quality badge showing format, bitrate, bit depth and sample rate</li>
+</ul>
+
+<p><b>Now Playing</b></p>
+<ul>
+<li>Swipe between covers with an animated carousel</li>
+<li>Album art styles, including a rotating CD you can spin to scrub</li>
+<li>Synchronized and plain lyrics embedded in your files</li>
+<li>Neo Retro: a cassette-deck theme with spinning reels</li>
+</ul>
+
+<p><b>Playlists</b></p>
+<ul>
+<li>Create, rename and reorder playlists, and set a custom cover</li>
+<li>Playlists remember songs by a stable ID, so they survive rescans and moved files</li>
+<li>Import and export M3U / M3U8</li>
+</ul>
+
+<p>Several dark color themes, Material You and pure AMOLED black are included.</p>

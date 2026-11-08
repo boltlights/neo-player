@@ -23,8 +23,8 @@ android {
     applicationId = "io.github.boltlights.neo"
     minSdk = 24
     targetSdk = 35
-    versionCode = 4
-    versionName = "1.4.0"
+    versionCode = 5
+    versionName = "1.5.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -76,7 +76,6 @@ android {
 }
 
 dependencies {
-  implementation(libs.play.services.location)
   implementation(libs.jaudiotagger)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
@@ -85,7 +84,6 @@ dependencies {
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.material3.windowsizeclass)
   implementation(libs.androidx.compose.ui)
-  implementation(libs.androidx.compose.ui.text.google.fonts)
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)

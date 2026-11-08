@@ -5,16 +5,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MusicDao {
-    @androidx.room.Query("SELECT * FROM smart_volume_zones")
-    fun getAllSmartVolumeZones(): kotlinx.coroutines.flow.Flow<List<SmartVolumeZoneEntity>>
-    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
-    suspend fun insertSmartVolumeZone(zone: SmartVolumeZoneEntity): Long
-    @androidx.room.Update
-    suspend fun updateSmartVolumeZone(zone: SmartVolumeZoneEntity)
-    @androidx.room.Delete
-    suspend fun deleteSmartVolumeZone(zone: SmartVolumeZoneEntity)
-    @androidx.room.Query("SELECT * FROM smart_volume_zones WHERE id = :id")
-    suspend fun getSmartVolumeZone(id: Int): SmartVolumeZoneEntity?
     // Track Queries
     @Query("SELECT * FROM tracks ORDER BY addedAt DESC")
     fun getAllTracks(): Flow<List<TrackEntity>>

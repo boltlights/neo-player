@@ -48,17 +48,6 @@ fun SettingsScreen(
     onBack: () -> Unit = { viewModel.selectScreen(com.example.Screen.LIBRARY) }
 ) {
     var currentSubScreen by remember { mutableStateOf("Main") }
-    var showSmartVolumeScreen by remember { mutableStateOf(false) }
-    if (showSmartVolumeScreen) {
-        SmartVolumeSettingsScreen(
-            viewModel = viewModel,
-            accentColor = accentColor,
-            surfaceColor = surfaceColor,
-            onBgColor = onBgColor,
-            onBack = { showSmartVolumeScreen = false }
-        )
-        return
-    }
 
     BackHandler(enabled = currentSubScreen != "Main") {
         if (currentSubScreen in listOf("Themes", "Album Art", "Library Tabs")) {
@@ -116,8 +105,6 @@ fun SettingsScreen(
             surfaceColor = surfaceColor,
             onBgColor = onBgColor,
             onBack = { currentSubScreen = "Main" }
-            ,
-            onSmartVolumeClick = { showSmartVolumeScreen = true }
         )
     } else if (currentSubScreen == "Music Sources") {
         MusicSourcesScreen(
@@ -292,42 +279,6 @@ fun SettingsScreen(
                 color = surfaceColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showSmartVolumeScreen = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.DriveEta,
-                        contentDescription = "Driver Mode",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            "Driver Mode",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White
-                        )
-                        Text(
-                            "Location-based volume adjustment",
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = surfaceColor,
-                modifier = Modifier
-                    .fillMaxWidth()
                     .clickable { currentSubScreen = "Others" }
             ) {
                 Row(
@@ -407,8 +358,7 @@ fun OthersSettingsScreen(
     accentColor: Color,
     surfaceColor: Color,
     onBgColor: Color,
-    onBack: () -> Unit,
-    onSmartVolumeClick: () -> Unit
+    onBack: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Column(
@@ -433,57 +383,6 @@ fun OthersSettingsScreen(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            "Tools",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-        )
-        
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = surfaceColor,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onSmartVolumeClick() }
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.DriveEta,
-                    contentDescription = "Driver Mode",
-                    tint = onBgColor,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Driver Mode",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White
-                    )
-                    Text(
-                        "Location-based automatic volume adjustment",
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = onBgColor.copy(alpha = 0.6f)
-                    )
-                }
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = accentColor
-                )
-            }
-        }
-
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             "Debugging",
@@ -1029,7 +928,7 @@ fun ErrorLogsDialog(
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        "All systems running smoothly.\nNeo Player actively monitors:\n• Uncaught fatal JVM exceptions\n• Android OS system exits (ANRs, native crashes, LMK)\n• Unhandled coroutines and player errors",
+                                        "All systems running smoothly.\nNeo Player actively monitors:\nâ€¢ Uncaught fatal JVM exceptions\nâ€¢ Android OS system exits (ANRs, native crashes, LMK)\nâ€¢ Unhandled coroutines and player errors",
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = onBgColor.copy(alpha = 0.7f),
@@ -1180,10 +1079,10 @@ private fun CrashEntryCard(
     var isExpanded by remember { mutableStateOf(false) }
 
     val (badgeBg, badgeText, badgeLabel) = when {
-        entry.isSystemExit -> Triple(Color(0xFFE65100).copy(alpha = 0.25f), Color(0xFFFF9800), "⚠️ SYSTEM EXIT / ANR")
-        entry.isFatal -> Triple(Color.Red.copy(alpha = 0.25f), Color(0xFFFF5252), "🔥 FATAL CRASH")
-        entry.tag.contains("Diagnostic") -> Triple(Color(0xFF0288D1).copy(alpha = 0.25f), Color(0xFF4FC3F7), "🧪 TEST DIAGNOSTIC")
-        else -> Triple(Color(0xFFFBC02D).copy(alpha = 0.25f), Color(0xFFFFD54F), "⚠️ ERROR")
+        entry.isSystemExit -> Triple(Color(0xFFE65100).copy(alpha = 0.25f), Color(0xFFFF9800), "âš ï¸ SYSTEM EXIT / ANR")
+        entry.isFatal -> Triple(Color.Red.copy(alpha = 0.25f), Color(0xFFFF5252), "ðŸ”¥ FATAL CRASH")
+        entry.tag.contains("Diagnostic") -> Triple(Color(0xFF0288D1).copy(alpha = 0.25f), Color(0xFF4FC3F7), "ðŸ§ª TEST DIAGNOSTIC")
+        else -> Triple(Color(0xFFFBC02D).copy(alpha = 0.25f), Color(0xFFFFD54F), "âš ï¸ ERROR")
     }
 
     Card(
@@ -1254,7 +1153,7 @@ private fun CrashEntryCard(
             if (entry.breadcrumbs.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Recent Actions: ${entry.breadcrumbs.takeLast(2).joinToString(" → ")}",
+                    text = "Recent Actions: ${entry.breadcrumbs.takeLast(2).joinToString(" â†’ ")}",
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     color = accentColor.copy(alpha = 0.8f)
@@ -1274,7 +1173,7 @@ private fun CrashEntryCard(
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
-                        if (isExpanded) "Hide Stack Trace ▲" else "View Stack Trace ▼",
+                        if (isExpanded) "Hide Stack Trace â–²" else "View Stack Trace â–¼",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         color = accentColor

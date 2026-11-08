@@ -88,7 +88,7 @@ class StableUidMigrationTest {
 
         // Opening runs the migration and validates the resulting schema against v16.
         room = Room.databaseBuilder(context, MusicDatabase::class.java, dbName)
-            .addMigrations(StableUidMigration)
+            .addMigrations(StableUidMigration, DropDriverModeMigration)
             .allowMainThreadQueries()
             .build()
         val dao = room!!.musicDao()
@@ -117,7 +117,7 @@ class StableUidMigrationTest {
     fun emptyDatabaseMigratesCleanly() = runBlocking {
         createV15Database().close()
         room = Room.databaseBuilder(context, MusicDatabase::class.java, dbName)
-            .addMigrations(StableUidMigration)
+            .addMigrations(StableUidMigration, DropDriverModeMigration)
             .allowMainThreadQueries()
             .build()
         assertTrue(room!!.musicDao().getAllTracksSync().isEmpty())

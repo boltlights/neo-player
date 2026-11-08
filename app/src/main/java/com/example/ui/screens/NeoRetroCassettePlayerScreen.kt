@@ -166,7 +166,7 @@ fun NeoRetroCassettePlayerScreen(
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
-    var showSmartVolumeDialog by remember { mutableStateOf(false) }
+    var showSoundEffectDialog by remember { mutableStateOf(false) }
     var localTrackForProperties by remember { mutableStateOf<TrackEntity?>(null) }
     var activeScrubPositionMs by remember { mutableStateOf<Int?>(null) }
 
@@ -253,7 +253,7 @@ fun NeoRetroCassettePlayerScreen(
                     showQueue = !showQueue
                     if (showQueue) showLyrics = false
                 },
-                onEqualizerClick = { showSmartVolumeDialog = true },
+                onEqualizerClick = { showSoundEffectDialog = true },
                 onOptionsClick = { handleShowProperties(updatedTrack) }
             )
 
@@ -424,7 +424,7 @@ fun NeoRetroCassettePlayerScreen(
                     viewModel.playbackController.seekTo(finalPosMs)
                     activeScrubPositionMs = null
                 },
-                onSoundEffectClick = { showSmartVolumeDialog = true }
+                onSoundEffectClick = { showSoundEffectDialog = true }
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -479,11 +479,11 @@ fun NeoRetroCassettePlayerScreen(
             )
         }
 
-        // Overlay: Sound Effect / Smart Volume Dialog
-        if (showSmartVolumeDialog) {
-            SmartVolumeOverlayDialog(
+        // Overlay: Sound Effect info dialog
+        if (showSoundEffectDialog) {
+            SoundEffectInfoDialog(
                 viewModel = viewModel,
-                onDismiss = { showSmartVolumeDialog = false }
+                onDismiss = { showSoundEffectDialog = false }
             )
         }
     }
@@ -1808,10 +1808,10 @@ fun TapeDeckButton(
 }
 
 /**
- * Overlay Dialog for Smart Volume & Equalizer inside Neo Retro theme.
+ * Sound effect info dialog for the Neo Retro theme (unrelated to the removed Driver Mode).
  */
 @Composable
-fun SmartVolumeOverlayDialog(
+fun SoundEffectInfoDialog(
     viewModel: MusicViewModel,
     onDismiss: () -> Unit
 ) {

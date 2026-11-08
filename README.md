@@ -43,7 +43,6 @@ A clean, offline music player for Android. Neo plays the music already on your p
 
 **Personalization**
 - Several dark color themes, Material You and pure AMOLED black
-- Driver Mode: optional location-based volume adjustment
 - Home screen widget
 
 ## Requirements

@@ -1,0 +1,2 @@
+- Removed Driver Mode. Neo no longer requests location permissions or depends on Google Play services.
+- The app title font is now bundled instead of downloaded, so it works on phones without Google services.
