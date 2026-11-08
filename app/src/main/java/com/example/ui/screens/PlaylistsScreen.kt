@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -262,6 +263,7 @@ fun PlaylistDetailScreen(
     }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAddTracksDialog by remember { mutableStateOf(false) }
     var renameInput by remember { mutableStateOf(playlist.name) }
 
@@ -316,23 +318,49 @@ fun PlaylistDetailScreen(
         )
     }
 
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete playlist?", fontWeight = FontWeight.Bold) },
+            text = { Text("\"${playlist.name}\" will be deleted. The songs stay in your library.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    showOptionsMenu = false
+                    onDeletePlaylist()
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel", color = onBgColor.copy(alpha = 0.7f)) }
+            }
+        )
+    }
+
     if (showRenameDialog) {
+        // Open with the current name selected and focused, so typing replaces it (standard rename UX).
+        var renameField by remember {
+            mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(renameInput, androidx.compose.ui.text.TextRange(0, renameInput.length)))
+        }
+        val renameFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+        LaunchedEffect(Unit) { renameFocus.requestFocus() }
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
             title = { Text("Rename playlist", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
-                    value = renameInput,
-                    onValueChange = { renameInput = it },
+                    value = renameField,
+                    onValueChange = { renameField = it; renameInput = it.text },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(renameFocus)
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (renameInput.isNotBlank()) {
-                            onRenamePlaylist(renameInput)
+                        // Trim: stray leading/trailing spaces were saved as part of the name.
+                        val newName = renameInput.trim()
+                        if (newName.isNotEmpty() && newName != playlist.name) {
+                            onRenamePlaylist(newName)
                         }
                         showRenameDialog = false
                     }
@@ -620,7 +648,8 @@ fun PlaylistDetailScreen(
                                 .fillMaxWidth()
                                 .clickable { 
                                     if (label == "Delete") {
-                                        onDeletePlaylist()
+                                        // Ask first: deleting used to happen instantly, with no undo.
+                                        showDeleteConfirm = true
                                     } else if (label == "Play" && tracksInPlaylist.isNotEmpty()) {
                                         onPlayTrack(tracksInPlaylist.first())
                                     } else if (label == "Shuffle" && tracksInPlaylist.isNotEmpty()) {
