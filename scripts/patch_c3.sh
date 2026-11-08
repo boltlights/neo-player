@@ -1,2 +1,0 @@
-#!/bin/bash
-sed -i 's/val window = (view.context as android.app.Activity).window/var ctx = view.context\n            while (ctx is android.content.ContextWrapper) {\n                if (ctx is android.app.Activity) break\n                ctx = ctx.baseContext\n            }\n            val window = (ctx as? android.app.Activity)?.window ?: return@SideEffect/g' app/src/main/java/com/example/MainActivity.kt

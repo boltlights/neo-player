@@ -1,9 +1,17 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
+}
+
+// Release signing credentials live in an untracked file, never in git:
+//   keystore.properties (project root)  ->  storeFile=..., storePassword=..., keyAlias=..., keyPassword=...
+val keystoreProps = Properties().apply {
+  val f = rootProject.file("keystore.properties")
+  if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -11,33 +19,24 @@ android {
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.aistudio.offlinemusicplayer.mzkvtb"
+    // Permanent public identity of the app: changing it later breaks updates for every user.
+    applicationId = "io.github.boltlights.neo"
     minSdk = 24
     targetSdk = 35
-    versionCode = 3
-    versionName = "1.3.0"
+    versionCode = 4
+    versionName = "1.4.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
-      if (keystoreFile.exists()) {
-        storeFile = keystoreFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
-      }
-    }
-    create("debugConfig") {
-      val keystoreFile = file("${rootDir}/debug.keystore")
-      if (keystoreFile.exists()) {
-        storeFile = keystoreFile
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+      val path = keystoreProps.getProperty("storeFile")
+      if (path != null && rootProject.file(path).exists()) {
+        storeFile = rootProject.file(path)
+        storePassword = keystoreProps.getProperty("storePassword")
+        keyAlias = keystoreProps.getProperty("keyAlias")
+        keyPassword = keystoreProps.getProperty("keyPassword")
       }
     }
   }
@@ -47,14 +46,15 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // Unsigned if keystore.properties is missing (e.g. on someone else's machine).
+      if (signingConfigs.getByName("release").storeFile != null) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug {
-      // Use the project keystore only if it exists; otherwise fall back to the standard Android debug
-      // key (~/.android/debug.keystore). Without this, debug builds failed to package at all.
-      if (file("${rootDir}/debug.keystore").exists()) {
-        signingConfig = signingConfigs.getByName("debugConfig")
-      }
+      // Debug builds install side by side with the released app instead of replacing it.
+      applicationIdSuffix = ".debug"
+      versionNameSuffix = "-debug"
     }
   }
   compileOptions {
@@ -75,17 +75,10 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-}
 dependencies {
-    implementation(libs.play.services.location)
+  implementation(libs.play.services.location)
   implementation(libs.jaudiotagger)
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
@@ -103,18 +96,12 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.session)
   implementation(libs.androidx.palette.ktx)
   implementation(libs.timber)
-  implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
-  implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -132,5 +119,4 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
 }

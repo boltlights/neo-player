@@ -28,3 +28,6 @@ public/assets/aistudio/
 
 # Reference copy of the Auxio player (GPL-3.0) - studied for ideas only, never part of this repo
 Auxio/
+
+# Release signing secrets - never commit
+keystore.properties

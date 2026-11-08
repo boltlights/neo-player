@@ -1,4 +1,0 @@
-#!/bin/bash
-sed -i 's/val list = currentTracks.toMutableList()/val list = currentTracks.toMutableList()\n                                val offset = if (isCustomSort \&\& \!isMultiSelectActive) 1 else 0\n                                val adjustedFrom = fromIndex - offset\n                                val adjustedTo = toIndex - offset\n                                if (adjustedFrom < 0 || adjustedFrom >= list.size || adjustedTo < 0 || adjustedTo >= list.size) return@rememberReorderableLazyListState/g' app/src/main/java/com/example/ui/screens/LibraryScreen.kt
-sed -i 's/val item = list.removeAt(fromIndex)/val item = list.removeAt(adjustedFrom)/g' app/src/main/java/com/example/ui/screens/LibraryScreen.kt
-sed -i 's/list.add(toIndex, item)/list.add(adjustedTo, item)/g' app/src/main/java/com/example/ui/screens/LibraryScreen.kt
