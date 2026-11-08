@@ -2,6 +2,14 @@
 
 A clean, offline music player for Android. Neo plays the music already on your phone. There are no accounts, no streaming and no ads.
 
+<p align="center">
+  <img src="docs/screenshots/neo_library.png" alt="Neo's song library" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/neo_player.png" alt="Now Playing with the spinning CD album art style" width="300">
+</p>
+
+<p align="center"><sub>Album art and song names in these screenshots are fictional.</sub></p>
+
 ## Features
 
 **Library**
