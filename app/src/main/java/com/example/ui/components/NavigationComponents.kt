@@ -16,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -235,7 +237,7 @@ fun ActiveBottomBar(
                     }
                     IconButton(
                         onClick = onPlayPauseToggle,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(40.dp).semantics { contentDescription = if (isPlaying) "Pause" else "Play" }
                     ) {
                         if (isPlaying) {
                             PauseIcon(color = Color.White, modifier = Modifier.size(16.dp))

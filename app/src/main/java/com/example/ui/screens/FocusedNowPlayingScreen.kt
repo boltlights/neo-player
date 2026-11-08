@@ -28,6 +28,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -1002,7 +1004,8 @@ fun FocusedNowPlayingScreen(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clickable { viewModel.playbackController.toggleRepeat() },
+                        .clickable { viewModel.playbackController.toggleRepeat() }
+                        .semantics { contentDescription = if (isRepeat) "Repeat on" else "Repeat off" },
                     contentAlignment = Alignment.Center
                 ) {
                     val repeatColor = if (isRepeat) accentColor else Color.White.copy(alpha = 0.5f)
@@ -1013,7 +1016,8 @@ fun FocusedNowPlayingScreen(
                 Box(
                     modifier = Modifier
                         .size(52.dp)
-                        .clickable { viewModel.playbackController.playPrevious() },
+                        .clickable { viewModel.playbackController.playPrevious() }
+                        .semantics { contentDescription = "Previous" },
                     contentAlignment = Alignment.Center
                 ) {
                     SkipPrevIcon(color = Color.White, modifier = Modifier.size(26.dp))
@@ -1024,6 +1028,7 @@ fun FocusedNowPlayingScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clickable { viewModel.playbackController.togglePlayPause() }
+                        .semantics { contentDescription = if (isPlaying) "Pause" else "Play" }
                         .shadow(8.dp, CircleShape),
                     color = Color.White,
                     shape = CircleShape
@@ -1044,7 +1049,8 @@ fun FocusedNowPlayingScreen(
                 Box(
                     modifier = Modifier
                         .size(52.dp)
-                        .clickable { viewModel.playbackController.playNext() },
+                        .clickable { viewModel.playbackController.playNext() }
+                        .semantics { contentDescription = "Next" },
                     contentAlignment = Alignment.Center
                 ) {
                     SkipNextIcon(color = Color.White, modifier = Modifier.size(26.dp))
@@ -1054,7 +1060,8 @@ fun FocusedNowPlayingScreen(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clickable { viewModel.playbackController.toggleShuffle() },
+                        .clickable { viewModel.playbackController.toggleShuffle() }
+                        .semantics { contentDescription = if (isShuffle) "Shuffle on" else "Shuffle off" },
                     contentAlignment = Alignment.Center
                 ) {
                     val shuffleColor = if (isShuffle) accentColor else Color.White.copy(alpha = 0.5f)

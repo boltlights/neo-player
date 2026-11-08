@@ -27,6 +27,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
@@ -635,7 +637,8 @@ fun MainScreenLayout(
                                 viewModel.setPlayerExpanded(true)
                             }
                         }
-                        .testTag("floating_shuffle_button"),
+                        .testTag("floating_shuffle_button")
+                        .semantics { contentDescription = "Shuffle all songs" },
                     contentAlignment = Alignment.Center
                 ) {
                     ShuffleIcon(
