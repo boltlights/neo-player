@@ -92,9 +92,8 @@ class PlaybackController(private val context: Context) {
     private val _onDiscontinuity = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(replay = 0, extraBufferCapacity = 1)
     val onDiscontinuity = _onDiscontinuity.asSharedFlow()
 
-    var crossfadeEnabled: Boolean = false
-    var crossfadeDurationSeconds: Int = 3
-    var gaplessEnabled: Boolean = true
+    /** Short fade applied on play/pause so playback doesn't start or stop with a click. */
+    private val defaultFadeMs = 300L
 
     fun moveQueueItem(fromIndex: Int, toIndex: Int) {
         ensurePlayer()
@@ -119,7 +118,7 @@ class PlaybackController(private val context: Context) {
         fadeJob?.cancel()
         player.volume = 0f
         player.play()
-        val durationMs = durationOverrideMs ?: if (crossfadeEnabled) (crossfadeDurationSeconds * 1000L).coerceIn(500L, 8000L) else 300L
+        val durationMs = durationOverrideMs ?: defaultFadeMs
         fadeJob = playScope.launch {
             val steps = 20
             val delayMs = (durationMs / steps).coerceAtLeast(10L)
@@ -138,7 +137,7 @@ class PlaybackController(private val context: Context) {
         if (!player.isPlaying) return
         fadeJob?.cancel()
         val startVolume = player.volume
-        val durationMs = durationOverrideMs ?: if (crossfadeEnabled) (crossfadeDurationSeconds * 1000L).coerceIn(500L, 8000L) else 300L
+        val durationMs = durationOverrideMs ?: defaultFadeMs
         fadeJob = playScope.launch {
             val steps = 20
             val delayMs = (durationMs / steps).coerceAtLeast(10L)

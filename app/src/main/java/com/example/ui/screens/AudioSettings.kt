@@ -30,9 +30,6 @@ fun PlaybackAudioSettingsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val gaplessPlayback by viewModel.gaplessPlayback.collectAsStateWithLifecycle()
-    val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
-    val crossfadeDuration by viewModel.crossfadeDuration.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -56,7 +53,7 @@ fun PlaybackAudioSettingsScreen(
                 )
             }
             Text(
-                "CROSSFADE, GAPLESS & SYSTEM AUDIO",
+                "VOLUME NORMALIZATION & SYSTEM AUDIO",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 color = onBgColor.copy(alpha = 0.5f),
@@ -64,144 +61,6 @@ fun PlaybackAudioSettingsScreen(
             )
         }
 
-        Text(
-            "Transitions",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-        )
-
-        // Gapless Playback Card
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = surfaceColor,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text(
-                        "Gapless Playback",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Seamless transition between consecutive tracks without silence or lag.",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = onBgColor.copy(alpha = 0.5f)
-                    )
-                }
-                Switch(
-                    checked = gaplessPlayback,
-                    onCheckedChange = { viewModel.setGaplessPlayback(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color.White.copy(alpha = 0.5f),
-                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                        uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Crossfade Card
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = surfaceColor,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                        Text(
-                            "Crossfade Tracks",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "Fade out the end of a track while smoothly fading in the beginning of the next track.",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = onBgColor.copy(alpha = 0.5f)
-                        )
-                    }
-                    Switch(
-                        checked = crossfadeEnabled,
-                        onCheckedChange = { viewModel.setCrossfadeEnabled(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color.White.copy(alpha = 0.5f),
-                            uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
-                        )
-                    )
-                }
-
-                if (crossfadeEnabled) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = onBgColor.copy(alpha = 0.1f)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Duration",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White
-                        )
-                        Text(
-                            "$crossfadeDuration seconds",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = accentColor
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Slider(
-                        value = crossfadeDuration.toFloat(),
-                        onValueChange = { viewModel.setCrossfadeDuration(it.toInt()) },
-                        valueRange = 1f..12f,
-                        steps = 10,
-                        colors = SliderDefaults.colors(
-                            thumbColor = accentColor,
-                            activeTrackColor = accentColor,
-                            inactiveTrackColor = onBgColor.copy(alpha = 0.2f)
-                        )
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             "Volume Normalization",
@@ -389,7 +248,7 @@ fun PlaybackAudioSettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "• Automatically pauses playback when headphones or Bluetooth audio disconnects (Becoming Noisy).\n• Manages system audio focus: pauses during incoming phone calls and ducks volume during incoming notifications.",
+                    "â€¢ Automatically pauses playback when headphones or Bluetooth audio disconnects (Becoming Noisy).\nâ€¢ Manages system audio focus: pauses during incoming phone calls and ducks volume during incoming notifications.",
                     fontSize = 11.sp,
                     lineHeight = 16.sp,
                     fontFamily = FontFamily.Monospace,

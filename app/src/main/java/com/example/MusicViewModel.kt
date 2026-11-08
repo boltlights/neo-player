@@ -159,14 +159,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val includedFolders get() = settings.includedFolders
     val excludedFolders get() = settings.excludedFolders
     val autoRefreshEnabled get() = settings.autoRefreshEnabled
-    val gaplessPlayback get() = settings.gaplessPlayback
-    val crossfadeEnabled get() = settings.crossfadeEnabled
-    val crossfadeDuration get() = settings.crossfadeDuration
     val autoSyncMediaStore get() = settings.autoSyncMediaStore
     val intelligentSorting get() = settings.intelligentSorting
     val separators get() = settings.separators
     val useFileTreeCache get() = settings.useFileTreeCache
-    val locationMode get() = settings.locationMode
     val replayGainMode get() = settings.replayGainMode
     val replayGainPreAmpDb get() = settings.replayGainPreAmpDb
 
@@ -186,14 +182,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun addExcludedFolder(uri: String) = settings.addExcludedFolder(uri)
     fun removeExcludedFolder(uri: String) = settings.removeExcludedFolder(uri)
     fun setAutoRefreshEnabled(enabled: Boolean) = settings.setAutoRefreshEnabled(enabled)
-    fun setGaplessPlayback(enabled: Boolean) = settings.setGaplessPlayback(enabled)
-    fun setCrossfadeEnabled(enabled: Boolean) = settings.setCrossfadeEnabled(enabled)
-    fun setCrossfadeDuration(seconds: Int) = settings.setCrossfadeDuration(seconds)
     fun setAutoSyncMediaStore(enabled: Boolean) = settings.setAutoSyncMediaStore(enabled)
     fun setIntelligentSorting(enabled: Boolean) = settings.setIntelligentSorting(enabled)
     fun setSeparators(separators: String) = settings.setSeparators(separators)
     fun setUseFileTreeCache(enabled: Boolean) = settings.setUseFileTreeCache(enabled)
-    fun setLocationMode(mode: String) = settings.setLocationMode(mode)
 
     // Playback State & UI Overlay
     val currentScreen get() = playback.currentScreen
@@ -245,28 +237,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             performAutoRefresh()
         }
 
-        // Sync crossfade & gapless settings to playback controller
-        playbackController.crossfadeEnabled = crossfadeEnabled.value
-        playbackController.crossfadeDurationSeconds = crossfadeDuration.value
-        playbackController.gaplessEnabled = gaplessPlayback.value
+        // Sync ReplayGain settings to the playback controller
         playbackController.replayGainProcessor.mode = replayGainMode.value
         playbackController.replayGainProcessor.preAmpDb = replayGainPreAmpDb.value
 
-        viewModelScope.launch {
-            crossfadeEnabled.collect {
-                playbackController.crossfadeEnabled = it
-            }
-        }
-        viewModelScope.launch {
-            crossfadeDuration.collect {
-                playbackController.crossfadeDurationSeconds = it
-            }
-        }
-        viewModelScope.launch {
-            gaplessPlayback.collect {
-                playbackController.gaplessEnabled = it
-            }
-        }
         viewModelScope.launch {
             replayGainMode.collect {
                 playbackController.replayGainProcessor.mode = it

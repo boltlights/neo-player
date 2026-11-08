@@ -238,7 +238,7 @@ fun SettingsScreen(
                             color = Color.White
                         )
                         Text(
-                            "Gapless, crossfade, audio focus & effects",
+                            "Volume normalization, audio focus & effects",
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             color = Color.White.copy(alpha = 0.6f)

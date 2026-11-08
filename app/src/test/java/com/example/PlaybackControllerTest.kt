@@ -41,27 +41,6 @@ class PlaybackControllerTest {
     }
 
     // =========================================================================
-    // 1. Crossfade & Gapless Parameters
-    // =========================================================================
-
-    @Test
-    fun crossfadeParameters_defaultAndConfiguration() {
-        // Default values
-        assertFalse(controller.crossfadeEnabled)
-        assertEquals(3, controller.crossfadeDurationSeconds)
-        assertTrue(controller.gaplessEnabled)
-
-        // Custom configurations
-        controller.crossfadeEnabled = true
-        controller.crossfadeDurationSeconds = 6
-        controller.gaplessEnabled = false
-
-        assertTrue(controller.crossfadeEnabled)
-        assertEquals(6, controller.crossfadeDurationSeconds)
-        assertFalse(controller.gaplessEnabled)
-    }
-
-    // =========================================================================
     // 2. Queue Operations
     // =========================================================================
 

@@ -57,16 +57,6 @@ class SettingsRepository(context: Context) {
 
     private val _autoRefreshEnabled = MutableStateFlow(true)
     val autoRefreshEnabled: StateFlow<Boolean> = _autoRefreshEnabled.asStateFlow()
-
-    private val _gaplessPlayback = MutableStateFlow(true)
-    val gaplessPlayback: StateFlow<Boolean> = _gaplessPlayback.asStateFlow()
-
-    private val _crossfadeEnabled = MutableStateFlow(false)
-    val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
-
-    private val _crossfadeDuration = MutableStateFlow(3)
-    val crossfadeDuration: StateFlow<Int> = _crossfadeDuration.asStateFlow()
-
     private val _autoSyncMediaStore = MutableStateFlow(true)
     val autoSyncMediaStore: StateFlow<Boolean> = _autoSyncMediaStore.asStateFlow()
 
@@ -78,10 +68,6 @@ class SettingsRepository(context: Context) {
 
     private val _useFileTreeCache = MutableStateFlow(false)
     val useFileTreeCache: StateFlow<Boolean> = _useFileTreeCache.asStateFlow()
-
-    private val _locationMode = MutableStateFlow("SAF")
-    val locationMode: StateFlow<String> = _locationMode.asStateFlow()
-
     private val _replayGainMode = MutableStateFlow(com.example.ReplayGainMode.DYNAMIC)
     val replayGainMode: StateFlow<com.example.ReplayGainMode> = _replayGainMode.asStateFlow()
 
@@ -126,14 +112,10 @@ class SettingsRepository(context: Context) {
             _includedFolders.value = sharedPrefs.getStringSet("included_folders", emptySet()) ?: emptySet()
             _excludedFolders.value = sharedPrefs.getStringSet("excluded_folders", emptySet()) ?: emptySet()
             _autoRefreshEnabled.value = sharedPrefs.getBoolean("auto_refresh_enabled", true)
-            _gaplessPlayback.value = sharedPrefs.getBoolean("gapless_playback", true)
-            _crossfadeEnabled.value = sharedPrefs.getBoolean("crossfade_enabled", false)
-            _crossfadeDuration.value = sharedPrefs.getInt("crossfade_duration", 3)
             _autoSyncMediaStore.value = sharedPrefs.getBoolean("auto_sync_mediastore", true)
             _intelligentSorting.value = sharedPrefs.getBoolean("intelligent_sorting", true)
             _separators.value = sharedPrefs.getString("separators", "") ?: ""
             _useFileTreeCache.value = sharedPrefs.getBoolean("use_file_tree_cache", false)
-            _locationMode.value = sharedPrefs.getString("location_mode", "SAF") ?: "SAF"
             _replayGainMode.value = try {
                 com.example.ReplayGainMode.valueOf(
                     sharedPrefs.getString("replaygain_mode", com.example.ReplayGainMode.DYNAMIC.name) ?: com.example.ReplayGainMode.DYNAMIC.name
@@ -230,22 +212,6 @@ class SettingsRepository(context: Context) {
         _autoRefreshEnabled.value = enabled
         sharedPrefs.edit().putBoolean("auto_refresh_enabled", enabled).apply()
     }
-
-    fun setGaplessPlayback(enabled: Boolean) {
-        _gaplessPlayback.value = enabled
-        sharedPrefs.edit().putBoolean("gapless_playback", enabled).apply()
-    }
-
-    fun setCrossfadeEnabled(enabled: Boolean) {
-        _crossfadeEnabled.value = enabled
-        sharedPrefs.edit().putBoolean("crossfade_enabled", enabled).apply()
-    }
-
-    fun setCrossfadeDuration(durationSeconds: Int) {
-        _crossfadeDuration.value = durationSeconds
-        sharedPrefs.edit().putInt("crossfade_duration", durationSeconds).apply()
-    }
-
     fun setAutoSyncMediaStore(enabled: Boolean) {
         _autoSyncMediaStore.value = enabled
         sharedPrefs.edit().putBoolean("auto_sync_mediastore", enabled).apply()
@@ -265,12 +231,6 @@ class SettingsRepository(context: Context) {
         _useFileTreeCache.value = enabled
         sharedPrefs.edit().putBoolean("use_file_tree_cache", enabled).apply()
     }
-
-    fun setLocationMode(mode: String) {
-        _locationMode.value = mode
-        sharedPrefs.edit().putString("location_mode", mode).apply()
-    }
-
     fun setReplayGainMode(mode: com.example.ReplayGainMode) {
         _replayGainMode.value = mode
         sharedPrefs.edit().putString("replaygain_mode", mode.name).apply()

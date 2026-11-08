@@ -33,14 +33,10 @@ class SettingsViewModel(
     val includedFolders: StateFlow<Set<String>> = settingsRepository.includedFolders
     val excludedFolders: StateFlow<Set<String>> = settingsRepository.excludedFolders
     val autoRefreshEnabled: StateFlow<Boolean> = settingsRepository.autoRefreshEnabled
-    val gaplessPlayback: StateFlow<Boolean> = settingsRepository.gaplessPlayback
-    val crossfadeEnabled: StateFlow<Boolean> = settingsRepository.crossfadeEnabled
-    val crossfadeDuration: StateFlow<Int> = settingsRepository.crossfadeDuration
     val autoSyncMediaStore: StateFlow<Boolean> = settingsRepository.autoSyncMediaStore
     val intelligentSorting: StateFlow<Boolean> = settingsRepository.intelligentSorting
     val separators: StateFlow<String> = settingsRepository.separators
     val useFileTreeCache: StateFlow<Boolean> = settingsRepository.useFileTreeCache
-    val locationMode: StateFlow<String> = settingsRepository.locationMode
     val replayGainMode: StateFlow<com.example.ReplayGainMode> = settingsRepository.replayGainMode
     val replayGainPreAmpDb: StateFlow<Float> = settingsRepository.replayGainPreAmpDb
 
@@ -104,17 +100,7 @@ class SettingsViewModel(
         scope.launch { settingsRepository.setAutoRefreshEnabled(enabled) }
     }
 
-    fun setGaplessPlayback(enabled: Boolean) {
-        scope.launch { settingsRepository.setGaplessPlayback(enabled) }
-    }
 
-    fun setCrossfadeEnabled(enabled: Boolean) {
-        scope.launch { settingsRepository.setCrossfadeEnabled(enabled) }
-    }
-
-    fun setCrossfadeDuration(seconds: Int) {
-        scope.launch { settingsRepository.setCrossfadeDuration(seconds) }
-    }
 
     fun setAutoSyncMediaStore(enabled: Boolean) {
         scope.launch { settingsRepository.setAutoSyncMediaStore(enabled) }
@@ -130,10 +116,6 @@ class SettingsViewModel(
 
     fun setUseFileTreeCache(enabled: Boolean) {
         scope.launch { settingsRepository.setUseFileTreeCache(enabled) }
-    }
-
-    fun setLocationMode(mode: String) {
-        scope.launch { settingsRepository.setLocationMode(mode) }
     }
 
     fun setReplayGainMode(mode: com.example.ReplayGainMode) {
