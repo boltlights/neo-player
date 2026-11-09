@@ -60,6 +60,11 @@ class MediaStoreManager(
                 if (len != null && (len > 0 || len == android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH)) {
                     return true
                 }
+            } catch (e: SecurityException) {
+                // No permission is not the same as deleted: a lost folder grant used to make every
+                // sync delete the folder's songs (and remove them from playlists). Keep the track;
+                // Music Sources tells the user to grant the folder again.
+                return true
             } catch (e: Exception) {
                 return false
             }
@@ -136,6 +141,14 @@ class MediaStoreManager(
             tracks.remove(dup)
         }
     }
+
+    /**
+     * Cached metadata is reused only if the earlier read actually worked. A row saved after a failed
+     * read (no duration, placeholder title) would otherwise stay blank forever, because the file's
+     * modified date never changes; re-reading it lets a fixed reader repair it on the next sync.
+     */
+    private fun hasUsableMetadata(track: TrackEntity): Boolean =
+        track.durationMs > 0L && track.title != "Unknown Title"
 
     private fun isPathUnder(path: String, folder: String): Boolean {
         val base = folder.trimEnd('/')
@@ -313,7 +326,7 @@ class MediaStoreManager(
                         val existingTrack = existingBySource[uriString] ?: filePath?.let { existingByPath[it] }
 
                         val extracted: ExtractedMetadata
-                        if (existingTrack != null && existingTrack.lastModified == lastModified && lastModified > 0L) {
+                        if (existingTrack != null && existingTrack.lastModified == lastModified && lastModified > 0L && hasUsableMetadata(existingTrack)) {
                             // Re-use cached metadata
                             extracted = ExtractedMetadata(
                                 title = existingTrack.title,
@@ -697,7 +710,7 @@ class MediaStoreManager(
                     }
                     
                     val extracted: ExtractedMetadata
-                    if (existingTrack != null && existingTrack.lastModified == lastModified && lastModified > 0L) {
+                    if (existingTrack != null && existingTrack.lastModified == lastModified && lastModified > 0L && hasUsableMetadata(existingTrack)) {
                         extracted = ExtractedMetadata(
                             title = existingTrack.title,
                             artist = existingTrack.artist,

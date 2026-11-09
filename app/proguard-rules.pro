@@ -22,25 +22,20 @@
 # Room
 -dontwarn androidx.room.**
 
-# Moshi
--keep class com.squareup.moshi.** { *; }
--keep interface com.squareup.moshi.** { *; }
--keep class * extends com.squareup.moshi.JsonAdapter { *; }
--keepclassmembers class * {
-    @com.squareup.moshi.FromJson *;
-    @com.squareup.moshi.ToJson *;
-}
+# jaudiotagger (tag reading). Its classes build logger names from getPackage().getName() and
+# pick readers by class, so R8 must not move or rename them: once repackaged, getPackage()
+# returns null and reading the first WAV/AIFF file crashes the app.
+-keep class org.jaudiotagger.** { *; }
+-dontwarn org.jaudiotagger.**
+-dontwarn java.awt.**
+-dontwarn javax.imageio.**
+-dontwarn javax.swing.**
 
 # Coil
 -keep class coil.** { *; }
 
-# Retrofit / OkHttp
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class retrofit2.** { *; }
--keepclasseswithmembers class * {
-    @retrofit2.http.* <methods>;
-}
 
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}

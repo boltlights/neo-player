@@ -40,15 +40,20 @@ fun MusicSourcesScreen(
 
     val context = LocalContext.current
 
+    // Bumped after a folder is picked so the "access lost" check below is re-evaluated.
+    var grantsVersion by remember { mutableIntStateOf(0) }
+    val folderAccess = remember(includedFolders, grantsVersion) {
+        includedFolders.associateWith { com.example.util.UriGrants.hasFolderAccess(context, it) }
+    }
+
     val includedLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            viewModel.addIncludedFolder(uri.toString())
+            com.example.util.UriGrants.takeFolder(context, uri)
+            grantsVersion++
+            // Adds the folder if new and syncs right away (re-granting an existing folder resyncs it).
+            viewModel.importAudioFolder(context, uri) { }
         }
     }
 
@@ -56,10 +61,7 @@ fun MusicSourcesScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+            com.example.util.UriGrants.takeFolder(context, uri)
             viewModel.addExcludedFolder(uri.toString())
         }
     }
@@ -149,6 +151,18 @@ fun MusicSourcesScreen(
                                     color = onBgColor.copy(alpha = 0.4f),
                                     maxLines = 1
                                 )
+                                if (folderAccess[uriString] == false) {
+                                    Text(
+                                        text = "Access lost. Tap here and pick this folder again.",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = Color(0xFFFFB74D),
+                                        modifier = Modifier
+                                            .padding(top = 6.dp)
+                                            .clickable { includedLauncher.launch(Uri.parse(uriString)) }
+                                    )
+                                }
                             }
                             IconButton(onClick = { viewModel.removeIncludedFolder(uriString) }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color.Red.copy(alpha = 0.7f))

@@ -185,8 +185,10 @@ object MetadataExtractor {
                     year = year,
                     customTags = customTags
                 )
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
+            } catch (e: Throwable) {
+                // Throwable, not Exception: a broken or unusual file can make jaudiotagger throw an
+                // Error (e.g. ExceptionInInitializerError), which must not take the whole app down.
+                if (e is CancellationException || e is OutOfMemoryError) throw e
                 Timber.tag("MetadataExtractor").w(e, "jaudiotagger failed to read tags for %s, falling back to MediaMetadataRetriever", uriString)
                 // Fallback to MediaMetadataRetriever
             } finally {
@@ -260,7 +262,9 @@ object MetadataExtractor {
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Timber.tag("MetadataExtractor").w(e, "MediaMetadataRetriever failed to read tags for %s", uriString)
-            return ExtractedMetadata(null, null, null, null, null, null, null, null, null, null)
+            // Nothing could be read: still name the song after its file rather than "Unknown Title".
+            val (title, artist) = inferTitleArtist(null, null, fileName)
+            return ExtractedMetadata(title, artist, null, null, null, null, null, inferTrackNumber(null, fileName, title), null, null)
         } finally {
             try {
                 retriever.release()

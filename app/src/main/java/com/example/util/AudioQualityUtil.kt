@@ -87,8 +87,9 @@ object AudioQualityUtil {
                     header.sampleRate.toDoubleOrNull()
                 )
             }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
+        } catch (e: Throwable) {
+            // Throwable: jaudiotagger can throw Errors on unusual files; fall back instead of crashing.
+            if (e is kotlinx.coroutines.CancellationException || e is OutOfMemoryError) throw e
             timber.log.Timber.tag("AudioQualityUtil").w(e, "Jaudiotagger header read failed for %s", track.title)
         }
         

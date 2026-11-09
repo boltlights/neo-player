@@ -210,7 +210,9 @@ private suspend fun extractTrackProperties(context: android.content.Context, tra
         } else {
             props["Volume Leveling"] = "Standard (Not Tagged)"
         }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
+        // Throwable: jaudiotagger can throw Errors on unusual files.
+        if (e is kotlinx.coroutines.CancellationException || e is OutOfMemoryError) throw e
         props["Volume Leveling"] = "Standard"
     }
     val extractor = MediaExtractor()

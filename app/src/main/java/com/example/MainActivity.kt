@@ -278,10 +278,7 @@ fun MainScreenLayout(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
+            com.example.util.UriGrants.takeFolder(context, uri)
             Toast.makeText(context, context.getString(R.string.toast_importing_folder), Toast.LENGTH_SHORT).show()
             viewModel.importAudioFolder(context, uri) { count ->
                 if (count > 0) {
@@ -297,15 +294,11 @@ fun MainScreenLayout(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         if (uris.isNotEmpty()) {
-            for (uri in uris) {
-                try {
-                    context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                } catch (e: Exception) {
-                    timber.log.Timber.tag("MainActivity").w(e, "Failed to take persistable URI permission for %s", uri)
-                }
-            }
+            // Files inside an included folder are read through that folder; others get a grant
+            // without risking the folder's own grant (see UriGrants).
+            val prepared = uris.map { com.example.util.UriGrants.prepareImportedFile(context, it) }
             Toast.makeText(context, context.getString(R.string.toast_importing_files, uris.size), Toast.LENGTH_SHORT).show()
-            viewModel.importAudioFiles(context, uris) { count ->
+            viewModel.importAudioFiles(context, prepared) { count ->
                 if (count > 0) {
                     Toast.makeText(context, context.getString(R.string.toast_imported_songs, count), Toast.LENGTH_SHORT).show()
                 } else {
