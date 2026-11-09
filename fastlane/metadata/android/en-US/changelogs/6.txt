@@ -1,0 +1,4 @@
+- Fixed a crash when the library contains WAV or AIFF files.
+- Fixed songs disappearing from the library and playlists after importing many files: Neo no longer loses access to your music folder.
+- Music Sources now warns if a folder's access was lost and lets you grant it again with one tap.
+- Songs whose tags could not be read are re-read on the next sync instead of staying "Unknown Title".
