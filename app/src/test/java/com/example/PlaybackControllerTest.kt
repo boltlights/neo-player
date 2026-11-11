@@ -233,6 +233,42 @@ class PlaybackControllerTest {
         }
     }
 
+    /**
+     * Toggling shuffle must rearrange the queue around the playing song, not replace the queue:
+     * replacing it reloads the current song (a media-item transition) and was an audible gap.
+     */
+    @Test
+    fun toggleShuffle_keepsPlayingItemAndPlayerQueueMatchesList() {
+        val tracks = (1..10).map { createTrack(it, "Track $it") }
+        controller.setPlaybackList(tracks, tracks[4])
+        val player = controller.exoPlayer!!
+        assertEquals("5", player.currentMediaItem?.mediaId)
+
+        var transitions = 0
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                transitions++
+            }
+        })
+        fun playerOrder() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
+        fun listOrder() = controller.currentPlaybackList.value.map { it.id.toString() }
+
+        controller.toggleShuffle()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("5", player.currentMediaItem?.mediaId)
+        assertEquals(0, player.currentMediaItemIndex) // the playing song leads the shuffled queue
+        assertEquals(listOrder(), playerOrder())
+        assertEquals(10, player.mediaItemCount)
+
+        controller.toggleShuffle()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals("5", player.currentMediaItem?.mediaId)
+        assertEquals(4, player.currentMediaItemIndex) // back at its original place
+        assertEquals(tracks.map { it.id.toString() }, playerOrder())
+
+        assertEquals("the playing song must never be reloaded", 0, transitions)
+    }
+
     @Test
     fun playShuffledList_initiatesShuffleState() {
         val tracks = (1..8).map { createTrack(it, "Track $it") }

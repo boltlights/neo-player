@@ -850,31 +850,55 @@ class PlaybackController(private val context: Context) {
         return finalList
     }
 
+    /**
+     * Reorders the player's queue to [newList] without touching the item that is playing: everything
+     * around it is removed and the new neighbours are inserted before and after it. Replacing the
+     * whole queue instead (setMediaItems) reloads the current song, which was an audible gap every
+     * time shuffle was toggled. Returns false when the playing item can't be kept (caller falls back).
+     */
+    private fun reorderQueueKeepingCurrent(player: ExoPlayer, newList: List<TrackEntity>, current: TrackEntity?): Boolean {
+        val index = player.currentMediaItemIndex
+        val count = player.mediaItemCount
+        if (current == null || index !in 0 until count) return false
+        if (player.currentMediaItem?.mediaId != current.id.toString()) return false
+        val newIndex = newList.indexOfFirst { it.id == current.id }
+        if (newIndex == -1) return false
+
+        if (index + 1 < count) player.removeMediaItems(index + 1, count)
+        if (index > 0) player.removeMediaItems(0, index)
+        // The playing item is now alone at position 0.
+        val after = newList.subList(newIndex + 1, newList.size)
+        val before = newList.subList(0, newIndex)
+        if (after.isNotEmpty()) player.addMediaItems(1, getMediaItemsFromList(after))
+        if (before.isNotEmpty()) player.addMediaItems(0, getMediaItemsFromList(before))
+        lastMediaItemIndex = player.currentMediaItemIndex
+        return true
+    }
+
     fun toggleShuffle() {
         ensurePlayer()
         val isShuffled = !_isShuffle.value
         _isShuffle.value = isShuffled
         replayGainProcessor.isShuffleActive = isShuffled
-        
+
         exoPlayer?.let { player ->
             val currentTrack = _currentTrack.value
-            val currentPositionMs = player.currentPosition
-            val wasPlaying = player.isPlaying
-            if (isShuffled) {
+            val newList = if (isShuffled) {
                 basePlaybackList = _currentPlaybackList.value
-                val shuffled = fairShuffle(basePlaybackList, currentTrack)
-                _currentPlaybackList.value = shuffled
-                val newIndex = if (currentTrack != null) shuffled.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0) else 0
-                player.setMediaItems(getMediaItemsFromList(shuffled), newIndex, currentPositionMs)
-                if (wasPlaying) player.play()
+                fairShuffle(basePlaybackList, currentTrack)
             } else {
-                val restored = basePlaybackList
-                if (restored.isNotEmpty()) {
-                    _currentPlaybackList.value = restored
-                    val newIndex = if (currentTrack != null) restored.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0) else 0
-                    player.setMediaItems(getMediaItemsFromList(restored), newIndex, currentPositionMs)
-                    if (wasPlaying) player.play()
-                }
+                basePlaybackList
+            }
+            if (newList.isEmpty()) return
+            _currentPlaybackList.value = newList
+
+            if (!reorderQueueKeepingCurrent(player, newList, currentTrack)) {
+                // Nothing playing that we can keep (empty or out-of-sync queue): replace the queue.
+                val currentPositionMs = player.currentPosition
+                val wasPlaying = player.isPlaying
+                val newIndex = if (currentTrack != null) newList.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0) else 0
+                player.setMediaItems(getMediaItemsFromList(newList), newIndex, currentPositionMs)
+                if (wasPlaying) player.play()
             }
         }
     }
