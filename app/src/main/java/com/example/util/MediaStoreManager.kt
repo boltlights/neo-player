@@ -114,11 +114,17 @@ class MediaStoreManager(
      * are kept, and if *every* track looks inaccessible (permission revoked, storage not ready yet at
      * boot) the cleanup is skipped entirely instead of wiping the library and all playlists.
      */
-    private suspend fun pruneInaccessibleTracks(context: Context, existingTracks: List<TrackEntity>): MutableList<TrackEntity> {
+    private suspend fun pruneInaccessibleTracks(
+        context: Context,
+        existingTracks: List<TrackEntity>,
+        knownAlive: (TrackEntity) -> Boolean = { false }
+    ): MutableList<TrackEntity> {
         val accessible = mutableListOf<TrackEntity>()
         val dead = mutableListOf<TrackEntity>()
         for (track in existingTracks) {
-            if (isTrackAccessible(context, track) || isOnUnavailableVolume(track)) accessible.add(track) else dead.add(track)
+            // knownAlive first: opening a file through the folder provider costs ~0.2 s each, which
+            // made every launch sync take minutes on a few hundred songs.
+            if (knownAlive(track) || isTrackAccessible(context, track) || isOnUnavailableVolume(track)) accessible.add(track) else dead.add(track)
         }
         if (dead.isNotEmpty() && accessible.isEmpty()) {
             timber.log.Timber.tag("MediaStoreManager").w(
@@ -149,6 +155,26 @@ class MediaStoreManager(
      */
     private fun hasUsableMetadata(track: TrackEntity): Boolean =
         track.durationMs > 0L && track.title != "Unknown Title"
+
+    /**
+     * "authority|documentId" for a Storage Access Framework URI, so the same file is recognised whether
+     * it was reached through a folder ("…/tree/X/document/ID") or picked on its own ("…/document/ID").
+     */
+    private fun documentKey(uriString: String?): String? {
+        if (uriString.isNullOrEmpty() || !uriString.startsWith("content://")) return null
+        return try {
+            val uri = Uri.parse(uriString)
+            val seg = uri.pathSegments
+            val id = when {
+                seg.size >= 4 && seg[0] == "tree" && seg[2] == "document" -> seg[3]
+                seg.size >= 2 && seg[0] == "document" -> seg[1]
+                else -> null
+            }
+            id?.let { "${uri.authority}|$it" }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     private fun isPathUnder(path: String, folder: String): Boolean {
         val base = folder.trimEnd('/')
@@ -270,16 +296,11 @@ class MediaStoreManager(
             withContext(Dispatchers.IO) {
                 // Re-read inside the lock: a snapshot taken by the caller before waiting would be stale.
                 val existingTracks = repository.getAllTracksSync()
-                // 1. Clean up dead / deleted tracks from database (with storage-unavailable safeguards)
-                val activeExistingTracks = pruneInaccessibleTracks(context, existingTracks)
-                removeDuplicateRows(activeExistingTracks)
 
-                val trackMatcher = TrackMatcher(activeExistingTracks)
-                val existingBySource = activeExistingTracks.filter { !it.sourceUri.isNullOrEmpty() }.associateBy { it.sourceUri!! }
-                val existingByPath = activeExistingTracks.filter { it.filePath.isNotEmpty() }.associateBy { it.filePath }
-
+                // List the included folders first: every file the listing returns is known to exist,
+                // so the cleanup below only has to open the few tracks the listing did not find.
+                val foundFiles = mutableListOf<Triple<Uri, String?, Long>>()
                 if (includedFolders.isNotEmpty()) {
-                    val foundFiles = mutableListOf<Triple<Uri, String?, Long>>()
                     val useCache = settingsRepository?.useFileTreeCache?.value ?: false
                     try {
                         DirectoryScanner.scanFolders(
@@ -294,6 +315,30 @@ class MediaStoreManager(
                         if (e is CancellationException) throw e
                         timber.log.Timber.tag("MediaStoreManager").e(e, "Error scanning folders")
                     }
+                }
+                val foundUris = HashSet<String>(foundFiles.size * 2)
+                val foundPaths = HashSet<String>()
+                val foundDocKeys = HashSet<String>(foundFiles.size * 2)
+                for ((uri, path, _) in foundFiles) {
+                    val s = uri.toString()
+                    foundUris.add(s)
+                    path?.let { foundPaths.add(it) }
+                    documentKey(s)?.let { foundDocKeys.add(it) }
+                }
+
+                // 1. Clean up dead / deleted tracks from database (with storage-unavailable safeguards)
+                val activeExistingTracks = pruneInaccessibleTracks(context, existingTracks) { track ->
+                    val src = track.sourceUri ?: track.filePath
+                    src in foundUris || track.filePath in foundPaths ||
+                        (documentKey(src)?.let { it in foundDocKeys } == true)
+                }
+                removeDuplicateRows(activeExistingTracks)
+
+                val trackMatcher = TrackMatcher(activeExistingTracks)
+                val existingBySource = activeExistingTracks.filter { !it.sourceUri.isNullOrEmpty() }.associateBy { it.sourceUri!! }
+                val existingByPath = activeExistingTracks.filter { it.filePath.isNotEmpty() }.associateBy { it.filePath }
+
+                if (includedFolders.isNotEmpty()) {
 
                     // Pre-sort discovered files in natural alphanumeric order
                     val sortedFiles = foundFiles.sortedWith(
@@ -395,7 +440,9 @@ class MediaStoreManager(
                                 year = item.extracted.year ?: matched.year,
                                 customTags = item.extracted.customTags ?: matched.customTags
                             )
-                            repository.updateTrack(updated)
+                            // Unchanged songs are not rewritten: one write per song on every sync was
+                            // most of the remaining sync time and re-triggered every library query.
+                            if (updated != matched) repository.updateTrack(updated)
                         } else {
                             val newTrack = TrackEntity(
                                 title = title,
@@ -593,7 +640,7 @@ class MediaStoreManager(
                                         genre = if (genre != "Unknown") genre else matched.genre,
                                         year = year ?: matched.year
                                     )
-                                    repository.updateTrack(updated)
+                                    if (updated != matched) repository.updateTrack(updated)
                                 } else {
                                     val newTrack = TrackEntity(
                                         title = title,
@@ -653,8 +700,12 @@ class MediaStoreManager(
         try {
             withContext(Dispatchers.IO) {
                 val existingTracks = repository.getAllTracksSync()
-                // 1. Clean up dead tracks (with storage-unavailable safeguards)
-                val activeExistingTracks = pruneInaccessibleTracks(context, existingTracks)
+                // 1. Clean up dead tracks (with storage-unavailable safeguards). With included folders
+                // the folder sync already does this cheaply; opening every song here made importing a
+                // single file wait minutes on a large library.
+                val hasFolders = settingsRepository?.includedFolders?.value?.isNotEmpty() == true
+                val activeExistingTracks =
+                    if (hasFolders) existingTracks.toMutableList() else pruneInaccessibleTracks(context, existingTracks)
                 removeDuplicateRows(activeExistingTracks)
 
                 val trackMatcher = TrackMatcher(activeExistingTracks)
@@ -765,7 +816,7 @@ class MediaStoreManager(
                             albumArtist = item.extracted.albumArtist ?: matched.albumArtist,
                             lyrics = item.extracted.lyrics ?: matched.lyrics
                         )
-                        repository.updateTrack(updated)
+                        if (updated != matched) repository.updateTrack(updated)
                     } else {
                         val track = TrackEntity(
                             title = title,
