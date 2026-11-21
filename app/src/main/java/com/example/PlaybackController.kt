@@ -35,6 +35,9 @@ class PlaybackController(private val context: Context) {
 
     private var loggedForCurrentTrack = false
     private var consecutiveErrors = 0
+    /** Song resumed after a transient player error, and when; a second failure within 30 s skips it. */
+    private var lastRetriedMediaId: String? = null
+    private var lastRetryAtMs = 0L
     private var currentTrackIdForLogging: Int? = null
     private var currentAudioSessionId: Int = 0
     private var lastMediaItemIndex: Int = -1
@@ -108,6 +111,7 @@ class PlaybackController(private val context: Context) {
 
     fun smoothPlay(durationOverrideMs: Long? = null) {
         val player = exoPlayer ?: return
+        ensureServiceStarted()
 
         // After a playback error (or stop) the player sits in STATE_IDLE and play() alone does nothing.
         // Previously only togglePlayPause re-prepared, so tapping a queued song or next/prev was silent.
@@ -311,6 +315,27 @@ class PlaybackController(private val context: Context) {
                         super.onPlayerError(error)
                         timber.log.Timber.tag("PlaybackController").e(error, "Player error")
                         
+                        // Runtime/audio-output glitches (e.g. Media3's "Unexpected runtime error" from
+                        // DefaultAudioSink after a low-memory event) are not the file's fault: resume
+                        // the same song where it was, once. Skipping, as before, lost the rest of the
+                        // song. A file that can't be read or decoded still skips straight away.
+                        val failedId = this@apply.currentMediaItem?.mediaId
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        val isTransientError = error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_UNSPECIFIED ||
+                            error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED ||
+                            error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED
+                        val retriedRecently = failedId != null && failedId == lastRetriedMediaId && now - lastRetryAtMs < 30_000
+                        if (isTransientError && failedId != null && !retriedRecently) {
+                            lastRetriedMediaId = failedId
+                            lastRetryAtMs = now
+                            val resumeAt = this@apply.currentPosition
+                            timber.log.Timber.tag("PlaybackController").w("Resuming %s at %d ms after a player glitch", failedId, resumeAt)
+                            this@apply.seekTo(this@apply.currentMediaItemIndex, resumeAt)
+                            this@apply.prepare()
+                            this@apply.play()
+                            return
+                        }
+
                         consecutiveErrors++
                         if (consecutiveErrors < 5 && this@apply.hasNextMediaItem()) {
                             try {
@@ -345,12 +370,34 @@ class PlaybackController(private val context: Context) {
                 })
             }
 
-            try {
-                val serviceIntent = Intent(context, PlaybackService::class.java)
-                context.startService(serviceIntent)
-            } catch (e: Exception) {
-                timber.log.Timber.tag("PlaybackController").e(e, "Failed to start PlaybackService")
-            }
+            ensureServiceStarted()
+        }
+    }
+
+    /** Whether PlaybackService (media session, notification, lock-screen controls) has been started. */
+    private var serviceStarted = false
+
+    fun onServiceDestroyed() {
+        serviceStarted = false
+    }
+
+    /**
+     * Starts PlaybackService if it isn't running yet. Android refuses this while the app is in the
+     * background (BackgroundServiceStartNotAllowedException); previously the start was attempted
+     * only once per process, so after such a refusal music played with no notification or
+     * lock-screen controls for the rest of the session. It is now retried whenever playback starts.
+     */
+    private fun ensureServiceStarted() {
+        if (serviceStarted) return
+        try {
+            context.startService(Intent(context, PlaybackService::class.java))
+            serviceStarted = true
+        } catch (e: IllegalStateException) {
+            // BackgroundServiceStartNotAllowedException extends IllegalStateException. Expected
+            // when restored in the background; the next play() retries.
+            timber.log.Timber.tag("PlaybackController").w("PlaybackService start deferred: app in background")
+        } catch (e: Exception) {
+            timber.log.Timber.tag("PlaybackController").e(e, "Failed to start PlaybackService")
         }
     }
 
