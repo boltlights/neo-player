@@ -220,6 +220,8 @@ class PlaybackService : MediaLibraryService() {
         }
         mediaSession = null
         serviceJob.cancel()
+        // Lets the next play() start the service again.
+        (application as MusicApplication).playbackController.onServiceDestroyed()
         super.onDestroy()
     }
 }
