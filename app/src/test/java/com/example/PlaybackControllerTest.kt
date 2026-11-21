@@ -253,15 +253,15 @@ class PlaybackControllerTest {
         fun playerOrder() = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }
         fun listOrder() = controller.currentPlaybackList.value.map { it.id.toString() }
 
+        // No looper idling here: the fake files don't exist, and delivering their load errors would
+        // make the player skip songs. Queue edits are reflected in the player state synchronously.
         controller.toggleShuffle()
-        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         assertEquals("5", player.currentMediaItem?.mediaId)
         assertEquals(0, player.currentMediaItemIndex) // the playing song leads the shuffled queue
         assertEquals(listOrder(), playerOrder())
         assertEquals(10, player.mediaItemCount)
 
         controller.toggleShuffle()
-        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         assertEquals("5", player.currentMediaItem?.mediaId)
         assertEquals(4, player.currentMediaItemIndex) // back at its original place
         assertEquals(tracks.map { it.id.toString() }, playerOrder())

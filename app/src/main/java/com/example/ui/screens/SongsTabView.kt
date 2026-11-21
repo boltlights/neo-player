@@ -257,7 +257,8 @@ fun SongsTabView(
                         val bannerOffset = if (isCustomSort && !isMultiSelectActive) 1 else 0
                         Modifier
                             .fillMaxWidth()
-                            .animateItemPlacement()
+                            // Placement only, like the removed animateItemPlacement().
+                            .animateItem(fadeInSpec = null, fadeOutSpec = null)
                             .reorderableItem(reorderState, key = track.id)
                     } else {
                         Modifier.fillMaxWidth()
