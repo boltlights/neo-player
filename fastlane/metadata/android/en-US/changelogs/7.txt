@@ -1,0 +1,6 @@
+- Much faster library sync on launch: seconds instead of minutes on large folders.
+- Turning shuffle on or off no longer interrupts the song that is playing.
+- After a playback glitch, the same song resumes where it was instead of skipping to the next one.
+- The notification and lock-screen controls come back if Android blocked them when the app started in the background.
+- About now shows the real app version.
+- Updated Media3, Jetpack Compose, Room and other libraries.
