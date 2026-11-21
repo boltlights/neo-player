@@ -16,15 +16,17 @@ val keystoreProps = Properties().apply {
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  // Compile against 37 (required by current AndroidX libraries). targetSdk stays lower on purpose:
+  // raising it changes runtime behaviour and needs its own round of testing.
+  compileSdk = 37
 
   defaultConfig {
     // Permanent public identity of the app: changing it later breaks updates for every user.
     applicationId = "io.github.boltlights.neo"
     minSdk = 24
     targetSdk = 35
-    versionCode = 6
-    versionName = "1.5.1"
+    versionCode = 7
+    versionName = "1.6.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

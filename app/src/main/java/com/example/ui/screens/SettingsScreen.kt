@@ -610,11 +610,16 @@ fun AboutScreen(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        InfoRow("App Name", "Neo", onBgColor)
-                        InfoRow("Version", "1.3.0", onBgColor)
+                        // Read from the build itself so About can never drift from the real version
+                        // (it was hardcoded to "1.3.0" through 1.5.1).
+                        val buildSuffix = if (com.example.BuildConfig.DEBUG) " · debug" else ""
+                        InfoRow("App Name", "Neo Player", onBgColor)
+                        InfoRow("Version", "${com.example.BuildConfig.VERSION_NAME} (build ${com.example.BuildConfig.VERSION_CODE})$buildSuffix", onBgColor)
                         InfoRow("Framework", "Android (Jetpack Compose)", onBgColor)
-                        InfoRow("Audio SDK", "Jetpack Media3 (ExoPlayer)", onBgColor)
+                        InfoRow("Audio SDK", "Media3 ${androidx.media3.common.MediaLibraryInfo.VERSION} (ExoPlayer)", onBgColor)
                         InfoRow("Local Storage", "Room SQLite Database", onBgColor)
+                        InfoRow("License", "MIT (open source)", onBgColor)
+                        InfoRow("Source", "github.com/boltlights/neo-player", onBgColor)
                     }
                 }
             }
@@ -697,7 +702,9 @@ fun InfoRow(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             fontFamily = FontFamily.Monospace,
-            color = onBgColor
+            color = onBgColor,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f).padding(start = 16.dp)
         )
     }
 }
