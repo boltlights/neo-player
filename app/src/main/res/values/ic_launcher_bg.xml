@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Behind the launcher icon's note image (the same image as the no-album-art cover). -->
+    <color name="ic_launcher_bg">#FF0C0C0C</color>
+</resources>
