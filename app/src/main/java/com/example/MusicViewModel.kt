@@ -103,6 +103,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         playlist.exportPlaylistToM3u(context, p, tracks, uri, onResult)
     fun importPlaylistFromM3u(context: Context, uri: Uri, onResult: (Boolean, String) -> Unit) =
         playlist.importPlaylistFromM3u(context, uri, onResult)
+    val syncFolder get() = playlist.syncFolder
+    fun setSyncFolder(treeUri: Uri) = playlist.setSyncFolder(treeUri)
+    fun refreshFromSyncFolder(context: Context, onResult: (Boolean, String) -> Unit) =
+        playlist.refreshFromSyncFolder(context, onResult)
     fun getDuplicateTrackCount(playlistId: Int, newTrackIds: List<Int>): Int =
         playlist.getDuplicateTrackCount(playlistId, newTrackIds)
 
