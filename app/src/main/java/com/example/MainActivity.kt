@@ -258,12 +258,9 @@ fun MainScreenLayout(
     ) { uri ->
         if (uri != null) {
             com.example.util.UriGrants.takeFolder(context, uri)
-            viewModel.setSyncFolder(uri)
             // Its songs become part of the library (an included folder), then the playlists come in.
-            viewModel.importAudioFolder(context, uri) { _ ->
-                viewModel.refreshFromSyncFolder(context) { _, msg ->
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                }
+            viewModel.useSyncFolder(context, uri) { _, msg ->
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -580,7 +577,10 @@ fun MainScreenLayout(
                         viewModel.selectPlaylist(pl.id)
                         viewModel.setActivePlaylistForViewer(pl)
                     },
-                    onImportPlaylistClick = { m3uImportLauncher.launch(arrayOf("*/*")) }
+                    onImportPlaylistClick = { m3uImportLauncher.launch(arrayOf("*/*")) },
+                    hasSyncFolder = syncFolder != null,
+                    onRefreshSyncClick = refreshFromSync,
+                    onChooseSyncFolderClick = { syncFolderLauncher.launch(null) }
                 )
 
                 Screen.PLAYLISTS -> {
@@ -598,9 +598,6 @@ fun MainScreenLayout(
                             onImportPlaylistClick = {
                                 m3uImportLauncher.launch(arrayOf("*/*"))
                             },
-                            hasSyncFolder = syncFolder != null,
-                            onRefreshSyncClick = refreshFromSync,
-                            onChooseSyncFolderClick = { syncFolderLauncher.launch(null) },
                             onPlaylistSelect = { playlist ->
                                 viewModel.setActivePlaylistForViewer(playlist)
                                 viewModel.selectPlaylist(playlist.id)

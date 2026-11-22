@@ -142,7 +142,11 @@ fun LibraryScreen(
     onReorderLibrary: (List<TrackEntity>) -> Unit = {},
     /** Opens the full playlist manager (rename/delete/remove songs...) for a user playlist. */
     onOpenPlaylistManager: (PlaylistEntity) -> Unit = {},
-    onImportPlaylistClick: () -> Unit = {}
+    onImportPlaylistClick: () -> Unit = {},
+    /** Neo for Windows' "Phone sync" folder has been chosen. */
+    hasSyncFolder: Boolean = false,
+    onRefreshSyncClick: () -> Unit = {},
+    onChooseSyncFolderClick: () -> Unit = {}
 ) {
     var isMultiSelectActive by remember { mutableStateOf(false) }
     val selectedTracks = remember { mutableStateListOf<TrackEntity>() }
@@ -435,6 +439,22 @@ fun LibraryScreen(
                                                         onImportPlaylistClick()
                                                     }
                                                 )
+                                                if (hasSyncFolder) {
+                                                    DropdownMenuItem(
+                                                        text = { Text("Refresh from PC sync folder") },
+                                                        onClick = {
+                                                            showOverflowMenu = false
+                                                            onRefreshSyncClick()
+                                                        }
+                                                    )
+                                                }
+                                                DropdownMenuItem(
+                                                    text = { Text(if (hasSyncFolder) "Change PC sync folder" else "Set up PC sync folder") },
+                                                    onClick = {
+                                                        showOverflowMenu = false
+                                                        onChooseSyncFolderClick()
+                                                    }
+                                                )
                                                 if (!hideSampleMusicButton) {
                                                     DropdownMenuItem(
                                                         text = { Text("Generate 5 Samples") },
@@ -682,7 +702,10 @@ fun LibraryScreen(
                                 onCreatePlaylistClick = onCreatePlaylistClick,
                                 // User playlists open the full manager; the automatic ones (Recently
                                 // Played / Most Played / Recently Added, negative ids) keep the simple view.
-                                onPlaylistClick = { pl -> if (pl.id > 0) onOpenPlaylistManager(pl) else activePlaylistDetails = pl }
+                                onPlaylistClick = { pl -> if (pl.id > 0) onOpenPlaylistManager(pl) else activePlaylistDetails = pl },
+                                hasSyncFolder = hasSyncFolder,
+                                onRefreshSyncClick = onRefreshSyncClick,
+                                onChooseSyncFolderClick = onChooseSyncFolderClick
                             )
                         }
                     }

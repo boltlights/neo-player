@@ -9,6 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -42,7 +46,11 @@ fun PlaylistsTabView(
     accentColor: Color,
     libraryAlbumArtStyle: LibraryAlbumArtStyle,
     onCreatePlaylistClick: () -> Unit,
-    onPlaylistClick: (PlaylistEntity) -> Unit
+    onPlaylistClick: (PlaylistEntity) -> Unit,
+    /** Neo for Windows' "Phone sync" folder has been chosen. */
+    hasSyncFolder: Boolean = false,
+    onRefreshSyncClick: () -> Unit = {},
+    onChooseSyncFolderClick: () -> Unit = {}
 ) {
     val playlistsMap = remember(playlists, filteredTracks, playlistCrossRefs, recentlyPlayed, mostPlayed, recentlyAdded) {
         val list = mutableListOf<Pair<PlaylistEntity, List<TrackEntity>>>()
@@ -159,6 +167,58 @@ fun PlaylistsTabView(
                                 color = Color.Black,
                                 letterSpacing = 0.5.sp
                             )
+                        }
+                    }
+                }
+                // Playlists synced from the PC (Neo for Windows → Phone sync): re-import them all,
+                // updating playlists that already exist instead of making copies.
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = if (hasSyncFolder) onRefreshSyncClick else onChooseSyncFolderClick,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("refresh_sync_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                if (hasSyncFolder) "REFRESH FROM PC SYNC FOLDER" else "SET UP PC SYNC FOLDER",
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                letterSpacing = 0.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (hasSyncFolder) {
+                            IconButton(
+                                onClick = onChooseSyncFolderClick,
+                                modifier = Modifier.testTag("choose_sync_folder_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = "Choose a different PC sync folder",
+                                    tint = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
                         }
                     }
                 }

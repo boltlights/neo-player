@@ -104,7 +104,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun importPlaylistFromM3u(context: Context, uri: Uri, onResult: (Boolean, String) -> Unit) =
         playlist.importPlaylistFromM3u(context, uri, onResult)
     val syncFolder get() = playlist.syncFolder
-    fun setSyncFolder(treeUri: Uri) = playlist.setSyncFolder(treeUri)
+
+    /**
+     * Makes [treeUri] the PC sync folder: its songs join the library (an included folder), then its
+     * playlists are imported. When it replaces an earlier sync folder, that folder leaves the library
+     * first, songs and all — otherwise the same files, reached through two folder grants, would show
+     * up twice.
+     */
+    fun useSyncFolder(ctx: Context, treeUri: Uri, onResult: (Boolean, String) -> Unit) {
+        val old = playlist.syncFolder.value
+        val new = treeUri.toString()
+        viewModelScope.launch {
+            if (old != null && old != new) {
+                settingsRepository.removeIncludedFolder(old)
+                val prefix = "$old/document/"
+                repository.getAllTracksSync()
+                    .filter { it.sourceUri?.startsWith(prefix) == true }
+                    .forEach { repository.deleteTrack(it.id) }
+            }
+            playlist.setSyncFolder(treeUri)
+            library.importAudioFolder(ctx, treeUri) { _ -> playlist.refreshFromSyncFolder(ctx, onResult) }
+        }
+    }
     fun refreshFromSyncFolder(context: Context, onResult: (Boolean, String) -> Unit) =
         playlist.refreshFromSyncFolder(context, onResult)
     fun getDuplicateTrackCount(playlistId: Int, newTrackIds: List<Int>): Int =

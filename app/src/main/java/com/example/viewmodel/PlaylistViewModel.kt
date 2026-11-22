@@ -294,7 +294,7 @@ class PlaylistViewModel(
             try {
                 val files = playlistFiles(context, android.net.Uri.parse(folder))
                 if (files.isEmpty()) {
-                    withContext(Dispatchers.Main) { onResult(false, "No playlist files (.m3u8) in the sync folder") }
+                    withContext(Dispatchers.Main) { onResult(false, "No playlists here. Pick the folder with Music and Playlists inside") }
                     return@launch
                 }
                 val allTracks = repository.allTracks.first()

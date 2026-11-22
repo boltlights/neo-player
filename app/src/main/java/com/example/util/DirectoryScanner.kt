@@ -222,7 +222,7 @@ object DirectoryScanner {
             val name = file.second
             val mime = file.third.first
             val lastModified = file.third.second
-            if ((name != null && isAudioFile(name)) || mime.startsWith("audio/") || mime == "application/ogg") {
+            if (isAudioEntry(name, mime)) {
                 val docUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, file.first)
                 results.add(Triple(docUri, null, lastModified))
                 if (useCache) {
@@ -258,7 +258,7 @@ object DirectoryScanner {
         for (file in sortedFiles) {
             if (!file.isDirectory) {
                 val name = file.name
-                if ((name != null && isAudioFile(name)) || file.type?.startsWith("audio/") == true || file.type == "application/ogg") {
+                if (isAudioEntry(name, file.type)) {
                     results.add(Triple(file.uri, null, file.lastModified()))
                 }
             }
@@ -270,6 +270,21 @@ object DirectoryScanner {
                 scanDocumentFileRecursively(file, excludedUris, results)
             }
         }
+    }
+
+    /**
+     * A song file found while scanning a folder: an audio extension or an audio MIME type, but
+     * never a playlist. Android reports .m3u/.m3u8/.pls as `audio/x-mpegurl` etc., which used to
+     * add playlist files (e.g. the .m3u8 files in the PC sync folder) to the library as "songs".
+     */
+    fun isAudioEntry(name: String?, mime: String?): Boolean {
+        val lower = name?.lowercase().orEmpty()
+        val m = mime?.lowercase().orEmpty()
+        val playlist = lower.endsWith(".m3u") || lower.endsWith(".m3u8") || lower.endsWith(".pls") ||
+            lower.endsWith(".wpl") || lower.endsWith(".cue") ||
+            m.contains("mpegurl") || m == "audio/x-scpls" || m == "application/vnd.ms-wpl"
+        if (playlist) return false
+        return (name != null && isAudioFile(name)) || m.startsWith("audio/") || m == "application/ogg"
     }
 
     fun isAudioFile(name: String): Boolean {

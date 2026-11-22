@@ -72,10 +72,6 @@ fun PlaylistsScreen(
     surfaceColor: Color,
     onCreatePlaylistClick: () -> Unit,
     onImportPlaylistClick: () -> Unit = {},
-    /** Neo for Windows' "Phone sync" folder has been chosen. */
-    hasSyncFolder: Boolean = false,
-    onRefreshSyncClick: () -> Unit = {},
-    onChooseSyncFolderClick: () -> Unit = {},
     onPlaylistSelect: (PlaylistEntity) -> Unit,
     onPlaylistPlay: (PlaylistEntity) -> Unit,
     onPlaylistDelete: (PlaylistEntity) -> Unit
@@ -179,58 +175,6 @@ fun PlaylistsScreen(
                         fontWeight = FontWeight.Bold,
                         color = accentColor,
                         letterSpacing = 0.5.sp
-                    )
-                }
-            }
-        }
-
-        // Playlists synced from the PC (Neo for Windows → Phone sync): re-import them all,
-        // updating playlists that already exist instead of making copies.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = if (hasSyncFolder) onRefreshSyncClick else onChooseSyncFolderClick,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = accentColor),
-                border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .testTag("refresh_sync_button"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Sync,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = accentColor
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    if (hasSyncFolder) "REFRESH FROM PC SYNC FOLDER" else "SET UP PC SYNC FOLDER",
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            if (hasSyncFolder) {
-                IconButton(
-                    onClick = onChooseSyncFolderClick,
-                    modifier = Modifier.testTag("choose_sync_folder_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FolderOpen,
-                        contentDescription = "Choose a different sync folder",
-                        tint = accentColor.copy(alpha = 0.8f)
                     )
                 }
             }
