@@ -170,17 +170,14 @@ fun SongsTabView(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
+                // Same picture as the app icon and the no-album-art cover.
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.img_default_album_art),
                     contentDescription = null,
-                    tint = Color.White,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier
                         .size(96.dp)
-                        .background(
-                            color = Color.Black,
-                            shape = CookieShape()
-                        )
-                        .padding(24.dp)
+                        .clip(CookieShape())
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
