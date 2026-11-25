@@ -199,6 +199,42 @@ class PlaylistViewModel(
         }
     }
 
+    /** What importing one playlist file did. */
+    private data class ImportOutcome(val name: String, val matched: Int, val missing: Int, val updated: Boolean)
+
+    /**
+     * Imports one .m3u/.m3u8. A playlist with the same name (case-insensitive) is updated in
+     * place — its songs and order replaced — instead of a second copy being made, so importing
+     * the same file again after reordering on the PC just brings the new order over.
+     * Returns null when nothing in the file matched (an existing playlist is then left alone).
+     */
+    private suspend fun importOne(
+        context: android.content.Context,
+        uri: android.net.Uri,
+        fallbackName: String?,
+        allTracks: List<TrackEntity>
+    ): ImportOutcome? {
+        val lines = context.contentResolver.openInputStream(uri)?.use { s ->
+            java.io.BufferedReader(java.io.InputStreamReader(s, java.nio.charset.StandardCharsets.UTF_8)).readLines()
+        } ?: return null
+        val parsed = com.example.util.M3uPlaylist.parse(lines)
+        if (parsed.entries.isEmpty()) return null
+        val name = parsed.name
+            ?: fallbackName
+            ?: androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)?.name?.substringBeforeLast(".")
+            ?: "Imported Playlist"
+        val matched = com.example.util.M3uPlaylist.match(parsed.entries, allTracks) { listOf(it.filePath, it.sourceUri) }
+        if (matched.isEmpty()) return null
+        val existing = repository.allPlaylists.first().firstOrNull { it.name.equals(name, ignoreCase = true) }
+        if (existing != null) {
+            repository.rewritePlaylist(existing, matched)
+        } else {
+            val id = repository.insertPlaylist(PlaylistEntity(name = name)).toInt()
+            matched.forEach { repository.addTrackToPlaylist(id, it.id) }
+        }
+        return ImportOutcome(name, matched.size, parsed.entries.size - matched.size, existing != null)
+    }
+
     fun importPlaylistFromM3u(
         context: android.content.Context,
         uri: android.net.Uri,
@@ -206,83 +242,88 @@ class PlaylistViewModel(
     ) {
         scope.launch(Dispatchers.IO) {
             try {
-                val lines = mutableListOf<String>()
-                context.contentResolver.openInputStream(uri)?.use { inStream ->
-                    java.io.BufferedReader(java.io.InputStreamReader(inStream, java.nio.charset.StandardCharsets.UTF_8)).use { reader ->
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-                            val l = line?.trim() ?: continue
-                            if (l.isNotEmpty()) {
-                                lines.add(l)
-                            }
-                        }
-                    }
+                val r = importOne(context, uri, null, repository.allTracks.first())
+                val msg = when {
+                    r == null -> "No songs from this playlist were found in your library"
+                    r.updated -> "Updated '${r.name}': ${r.matched} songs" + if (r.missing > 0) " (${r.missing} not found)" else ""
+                    else -> "Imported '${r.name}' with ${r.matched} songs" + if (r.missing > 0) " (${r.missing} not found)" else ""
                 }
-
-                if (lines.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        onResult(false, "M3U file is empty")
-                    }
-                    return@launch
-                }
-
-                var playlistName: String? = null
-                for (l in lines) {
-                    if (l.startsWith("#PLAYLIST:", ignoreCase = true)) {
-                        playlistName = l.substringAfter(":").trim()
-                        break
-                    }
-                }
-                if (playlistName.isNullOrBlank()) {
-                    val docFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)
-                    playlistName = docFile?.name?.substringBeforeLast(".") ?: "Imported Playlist"
-                }
-
-                val trackPaths = mutableListOf<String>()
-                for (l in lines) {
-                    if (!l.startsWith("#")) {
-                        trackPaths.add(l)
-                    }
-                }
-
-                val allTracks = repository.allTracks.first()
-                val matchedTracks = mutableListOf<TrackEntity>()
-
-                for (path in trackPaths) {
-                    // Handle M3Us made on Windows ("C:\Music\a.mp3") and URL-encoded entries.
-                    val decoded = try { android.net.Uri.decode(path) } catch (e: Exception) { path }
-                    val fileName = decoded.substringAfterLast('/').substringAfterLast('\\')
-                    val match = allTracks.firstOrNull {
-                        it.filePath.equals(decoded, ignoreCase = true) ||
-                        it.sourceUri.equals(path, ignoreCase = true) ||
-                        (fileName.isNotEmpty() && java.io.File(it.filePath).name.equals(fileName, ignoreCase = true))
-                    }
-                    if (match != null) {
-                        matchedTracks.add(match)
-                    }
-                }
-
-                if (matchedTracks.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        onResult(false, "No matching audio files from M3U found in library")
-                    }
-                    return@launch
-                }
-
-                val newPlaylistId = repository.insertPlaylist(PlaylistEntity(name = playlistName)).toInt()
-                matchedTracks.forEach { track ->
-                    repository.addTrackToPlaylist(newPlaylistId, track.id)
-                }
-
-                withContext(Dispatchers.Main) {
-                    onResult(true, "Imported '$playlistName' with ${matchedTracks.size} tracks")
-                }
+                withContext(Dispatchers.Main) { onResult(r != null, msg) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 timber.log.Timber.tag("PlaylistViewModel").e(e, "Failed to import M3U")
                 withContext(Dispatchers.Main) {
                     onResult(false, e.message ?: "Import failed")
                 }
+            }
+        }
+    }
+
+    // ── Phone sync folder ─────────────────────────────────────────────────────
+    // The folder Neo for Windows keeps in sync ("Phone sync": Music\… + Playlists\*.m3u8),
+    // chosen once; "Refresh from folder" re-imports every playlist file in it.
+
+    private val syncPrefs by lazy { application.getSharedPreferences("neo_phone_sync", android.content.Context.MODE_PRIVATE) }
+
+    private val _syncFolder = MutableStateFlow<String?>(null)
+    /** The chosen sync folder's tree URI, or null. */
+    val syncFolder: StateFlow<String?> = _syncFolder.asStateFlow()
+
+    init {
+        _syncFolder.value = runCatching { syncPrefs.getString("folder", null) }.getOrNull()
+    }
+
+    fun setSyncFolder(treeUri: android.net.Uri) {
+        syncPrefs.edit().putString("folder", treeUri.toString()).apply()
+        _syncFolder.value = treeUri.toString()
+    }
+
+    /** Playlist files in the sync folder: its `Playlists` subfolder if there is one, else the folder itself. */
+    private fun playlistFiles(context: android.content.Context, treeUri: android.net.Uri): List<androidx.documentfile.provider.DocumentFile> {
+        val root = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri) ?: return emptyList()
+        val isPlaylist = { f: androidx.documentfile.provider.DocumentFile ->
+            f.isFile && (f.name?.lowercase()?.let { it.endsWith(".m3u8") || it.endsWith(".m3u") } == true)
+        }
+        val sub = root.listFiles().firstOrNull { it.isDirectory && it.name.equals("Playlists", ignoreCase = true) }
+        return (sub?.listFiles()?.filter(isPlaylist) ?: emptyList()) + root.listFiles().filter(isPlaylist)
+    }
+
+    fun refreshFromSyncFolder(context: android.content.Context, onResult: (Boolean, String) -> Unit) {
+        val folder = _syncFolder.value ?: return onResult(false, "Choose the sync folder first")
+        scope.launch(Dispatchers.IO) {
+            try {
+                val files = playlistFiles(context, android.net.Uri.parse(folder))
+                if (files.isEmpty()) {
+                    withContext(Dispatchers.Main) { onResult(false, "No playlists here. Pick the folder with Music and Playlists inside") }
+                    return@launch
+                }
+                val allTracks = repository.allTracks.first()
+                var updated = 0
+                var added = 0
+                var missing = 0
+                val empty = mutableListOf<String>()
+                for (f in files.sortedBy { it.name?.lowercase() }) {
+                    val r = importOne(context, f.uri, f.name?.substringBeforeLast("."), allTracks)
+                    when {
+                        r == null -> empty += f.name.orEmpty()
+                        r.updated -> updated++
+                        else -> added++
+                    }
+                    missing += r?.missing ?: 0
+                }
+                val parts = buildList {
+                    if (updated > 0) add("$updated updated")
+                    if (added > 0) add("$added new")
+                    if (missing > 0) add("$missing songs not found — scan your music first")
+                    if (empty.isNotEmpty()) add("${empty.size} with no songs found")
+                }
+                withContext(Dispatchers.Main) {
+                    onResult(updated + added > 0, "Playlists: " + parts.joinToString(", ").ifEmpty { "nothing to do" })
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                timber.log.Timber.tag("PlaylistViewModel").e(e, "Failed to refresh from sync folder")
+                withContext(Dispatchers.Main) { onResult(false, e.message ?: "Refresh failed") }
             }
         }
     }

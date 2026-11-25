@@ -243,6 +243,29 @@ fun MainScreenLayout(
         }
     }
 
+    // PC sync folder (Neo for Windows → Phone sync): scan for new songs, then update every
+    // playlist from its .m3u8 (same-name playlists are updated, not duplicated).
+    val refreshFromSync: () -> Unit = {
+        Toast.makeText(context, "Scanning for new songs…", Toast.LENGTH_SHORT).show()
+        viewModel.scanMediaStore(context) { _ ->
+            viewModel.refreshFromSyncFolder(context) { _, msg ->
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val syncFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            com.example.util.UriGrants.takeFolder(context, uri)
+            // Its songs become part of the library (an included folder), then the playlists come in.
+            viewModel.useSyncFolder(context, uri) { _, msg ->
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    val syncFolder by viewModel.syncFolder.collectAsStateWithLifecycle()
+
     val m3uExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("audio/x-mpegurl")
     ) { uri ->
@@ -554,7 +577,10 @@ fun MainScreenLayout(
                         viewModel.selectPlaylist(pl.id)
                         viewModel.setActivePlaylistForViewer(pl)
                     },
-                    onImportPlaylistClick = { m3uImportLauncher.launch(arrayOf("*/*")) }
+                    onImportPlaylistClick = { m3uImportLauncher.launch(arrayOf("*/*")) },
+                    hasSyncFolder = syncFolder != null,
+                    onRefreshSyncClick = refreshFromSync,
+                    onChooseSyncFolderClick = { syncFolderLauncher.launch(null) }
                 )
 
                 Screen.PLAYLISTS -> {
